@@ -144,8 +144,8 @@ background:var(--sidebar);
 
 .sidebar-menu-item.active .curved-bottom {
 position: absolute;
-top:48;
-left:8;
+top: 48px;
+left: 8px;
 height: 20px;
 width: 100%;
 background: #fff;
