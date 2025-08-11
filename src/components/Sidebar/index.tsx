@@ -59,10 +59,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         isActive={isActive}
                         className="h-12 font-medium relative border-0 outline-0 text-white hover:bg-white/10 focus:bg-white/10 active:bg-white/20 transition-colors"
                       >
-                        <a href={item.url} className="flex items-center gap-3 px-4 border-0 outline-0">
+                        <Link href={item.url} className="flex items-center gap-3 px-4 border-0 outline-0">
                           <item.icon className="h-5 w-5 flex-shrink-0" />
                           <span className="">{item.title}</span>
-                        </a>
+                        </Link>
                       </SidebarMenuButton>
                       {isActive && <div className="curved-bottom"></div>}
                     </SidebarMenuItem>
