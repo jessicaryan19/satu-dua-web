@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import AppSidebar from "@/components/sidebar/app-sidebar";
+import { Label } from "@/components/ui/label";
 
-const nunito = Nunito({
-  variable: "--font-nunito",
+const nunito_sans = Nunito_Sans({
+  variable: "--font-nunito-sans",
   subsets: ["latin"],
 });
 
@@ -22,13 +23,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${nunito.className} antialiased`}
+        className={`${nunito_sans.className} antialiased`}
       >
         <SidebarProvider>
           <AppSidebar />
-          <main className="">
-            <SidebarTrigger />
-            {children}
+          <main className="p-4 w-full h-full relative">
+            <div className="bg-primary p-4 w-full rounded-2xl">
+              <Label type="title" className="text-white">Page Name</Label>
+            </div>
+            <div className="">
+              {children}
+            </div>
           </main>
         </SidebarProvider>
       </body>

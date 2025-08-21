@@ -8,25 +8,33 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import CustomLabel from "../form/custom-label"
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { Icon } from "@iconify/react";
+import { Label } from "../ui/label";
 
-const items = [
+type SidebarItem = {
+  title: string,
+  url: string,
+  icon: string
+}
+
+const items: SidebarItem[] = [
   {
     title: "Beranda",
     url: "#",
-    icon: Home,
+    icon: "material-symbols:home-rounded",
   },
   {
     title: "Laporan",
     url: "#",
-    icon: FileText,
+    icon: "mingcute:paper-fill",
   },
   {
     title: "Statistik",
     url: "#",
-    icon: BarChart3,
+    icon: "bi:bar-chart-fill",
   },
 ]
 
@@ -34,26 +42,31 @@ export default function AppSidebar() {
   const [active, setActive] = useState("Beranda");
 
   return (
-    <Sidebar>
+    <Sidebar className="rounded-2xl">
       <SidebarHeader className="flex p-5">
-        <CustomLabel type='title'>Satudua.</CustomLabel>
+        <Image
+          src="/logo-satudua.svg"
+          alt="Satudua."
+          width={200}
+          height={50}
+        />
       </SidebarHeader>
       <SidebarContent className="pt-10">
-        <SidebarMenu className="flex ps-5 gap-4">
+        <SidebarMenu className="flex ps-5 gap-2">
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild isActive={active === item.title} className={cn(
-                "p-5 rounded-r-none",
+                "px-4 py-6 rounded-r-none rounded-l-2xl",
                 active === item.title && "relative overflow-visible rounded-r-none\
                 before:content-[''] before:h-8 before:w-10 before:absolute before:top-[-32] before:right-0 \
-                before:rounded-br-xl before:shadow-[0_15px_0_0_#fff]\
+                before:rounded-br-2xl before:shadow-[0_15px_0_0_#fff]\
                 after:content-[''] after:h-8 after:w-10 after:absolute after:bottom-[-32] after:right-0 \
-                after:rounded-tr-xl after:shadow-[0_-15px_0_0_#fff]",
+                after:rounded-tr-2xl after:shadow-[0_-15px_0_0_#fff]",
 
               )}>
                 <a href={item.url} onClick={() => setActive(item.title)}>
-                  <item.icon />
-                  <CustomLabel type='default'>{item.title}</CustomLabel>
+                  <Icon icon={item.icon} />
+                  <Label type='subtitle'>{item.title}</Label>
                 </a>
               </SidebarMenuButton>
             </SidebarMenuItem>

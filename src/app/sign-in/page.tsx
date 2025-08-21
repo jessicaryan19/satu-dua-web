@@ -1,6 +1,6 @@
-import CustomLabel from "@/components/form/custom-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Image from "next/image";
 
 export default function SignInPage() {
@@ -19,23 +19,21 @@ export default function SignInPage() {
                 </div>
             </div>
 
-
-
             <div className="flex flex-col gap-20 w-1/2 h-full justify-center items-center p-28">
                 <div className="flex flex-col gap-2 items-center justify-center">
-                    <CustomLabel type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</CustomLabel>
-                    <CustomLabel type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</CustomLabel>
-                    <CustomLabel type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</CustomLabel>
+                    <Label type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</Label>
+                    <Label type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</Label>
+                    <Label type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</Label>
                 </div>
 
                 <div className="flex flex-col gap-8 w-full">
                     <div className="flex flex-col gap-2 w-full">
-                        <CustomLabel htmlFor="email">Email</CustomLabel>
+                        <Label htmlFor="email">Email</Label>
                         <Input id="email" type="email" placeholder="Email" />
                     </div>
 
                     <div className="flex flex-col gap-2 w-full">
-                        <CustomLabel htmlFor="password">Password</CustomLabel>
+                        <Label htmlFor="password">Password</Label>
                         <Input id="password" type="password" placeholder="Password" />
                     </div>
                 </div>
