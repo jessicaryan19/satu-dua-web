@@ -52,18 +52,22 @@ export default function AppSidebar() {
         />
       </SidebarHeader>
       <SidebarContent className="pt-10">
-        <SidebarMenu className="flex ps-5 gap-2">
+        <SidebarMenu className="relative flex ps-5 gap-2">
+          <div className="absolute w-full pe-5">
+            <div className={cn(
+              "relative w-full h-12 bg-white rounded-r-none rounded-l-2xl\
+              before:content-[''] before:h-8 before:w-10 before:absolute before:top-[-32] before:right-0 before:rounded-br-2xl before:shadow-[0_15px_0_0_#fff]",
+              "after:content-[''] after:h-8 after:w-10 after:absolute after:bottom-[-32] after:right-0 after:rounded-tr-2xl after:shadow-[0_-15px_0_0_#fff]",
+              "transition-transform duration-300 ease-in-out"
+            )}
+            style={{
+              transform: `translateY(${items.findIndex(item => item.title === active) * 3.5}rem)`
+            }}/>
+          </div>
+
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={active === item.title} className={cn(
-                "px-4 py-6 rounded-r-none rounded-l-2xl",
-                active === item.title && "relative overflow-visible rounded-r-none\
-                before:content-[''] before:h-8 before:w-10 before:absolute before:top-[-32] before:right-0 \
-                before:rounded-br-2xl before:shadow-[0_15px_0_0_#fff]\
-                after:content-[''] after:h-8 after:w-10 after:absolute after:bottom-[-32] after:right-0 \
-                after:rounded-tr-2xl after:shadow-[0_-15px_0_0_#fff]",
-
-              )}>
+              <SidebarMenuButton asChild isActive={active === item.title} className={cn("relative px-4 py-6")}>
                 <a href={item.url} onClick={() => setActive(item.title)}>
                   <Icon icon={item.icon} />
                   <Label type='subtitle'>{item.title}</Label>
