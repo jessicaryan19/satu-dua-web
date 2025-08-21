@@ -67,7 +67,7 @@ export default function AppSidebar() {
 
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={active === item.title} className={cn("relative px-4 py-6")}>
+              <SidebarMenuButton asChild isActive={active === item.title} className={cn("relative px-4 py-6 transition-colors duration-300 ease-in-out")}>
                 <a href={item.url} onClick={() => setActive(item.title)}>
                   <Icon icon={item.icon} />
                   <Label type='subtitle'>{item.title}</Label>

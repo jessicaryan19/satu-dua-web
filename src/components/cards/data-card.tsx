@@ -20,7 +20,7 @@ export default function DataCard({
             icon: 'text-accent',
         },
         red: {
-            label: 'text-destructive',
+            label: 'text-secondary',
             icon: 'text-destructive-accent',
         }
     }

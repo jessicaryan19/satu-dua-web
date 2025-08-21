@@ -30,10 +30,10 @@ export default function Home() {
         <Label type="title" className="text-primary">Laporan Hari Ini</Label>
 
         <div className="w-full flex flex-col gap-4">
-          <ReportCard />
-          <ReportCard />
-          <ReportCard />
-          <ReportCard />
+          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"finished"} />
+          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"disconnected"} />
+          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"dispatched"} />
+          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"dispatched"} />
         </div>
       </div>
 
