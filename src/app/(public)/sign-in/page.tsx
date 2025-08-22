@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-import { signIn, signOut } from "@/services/authService"; // make sure this path is correct
+import { signIn } from "@/services/authService"; // make sure this path is correct
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,7 +16,9 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  signOut()
+  if (useAuth().session) {
+    router.push("/");
+  }
 
   const handleLogin = async () => {
     setLoading(true);
