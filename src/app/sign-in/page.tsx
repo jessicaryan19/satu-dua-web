@@ -1,47 +1,102 @@
+"use client";
+
+import { useState } from "react";
 import CustomLabel from "@/components/form/CustomLabel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
+import { signIn } from "@/services/authService"; // make sure this path is correct
+import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
-    return (
-        <div className="flex w-screen h-screen">
-            <div className="w-1/2 h-full p-6">
-                <div className="bg-accent w-full h-full rounded-4xl flex items-center justify-center p-12">
-                    <div className="relative w-full h-full">
-                        <Image
-                            className="object-contain"
-                            src="/login.svg"
-                            alt="login"
-                            fill
-                        />
-                    </div>
-                </div>
-            </div>
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
+  const handleLogin = async () => {
+    setLoading(true);
+    setErrorMessage("");
 
+    const { data, error } = await signIn(email, password);
 
-            <div className="flex flex-col gap-20 w-1/2 h-full justify-center items-center p-28">
-                <div className="flex flex-col gap-2 items-center justify-center">
-                    <CustomLabel type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</CustomLabel>
-                    <CustomLabel type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</CustomLabel>
-                    <CustomLabel type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</CustomLabel>
-                </div>
+    console.log(data)
 
-                <div className="flex flex-col gap-8 w-full">
-                    <div className="flex flex-col gap-2 w-full">
-                        <CustomLabel htmlFor="email">Email</CustomLabel>
-                        <Input id="email" type="email" placeholder="Email" />
-                    </div>
+    if (error) {
+      setErrorMessage(error.message);
+    } else {
+      if (data.user) {
+        const role = data.user.user_metadata?.role;
+        if (role === "operator" || role == "dispatcher") {
+          router.push("/");
+        }
+      }
+      else {
+        setErrorMessage("Login failed. Please check your credentials.");
+      }
+    }
 
-                    <div className="flex flex-col gap-2 w-full">
-                        <CustomLabel htmlFor="password">Password</CustomLabel>
-                        <Input id="password" type="password" placeholder="Password" />
-                    </div>
-                </div>
+    setLoading(false);
+  };
 
-                <Button className="w-full">Masuk</Button>
-            </div>
+  return (
+    <div className="flex w-screen h-screen">
+      {/* Left Image */}
+      <div className="w-1/2 h-full p-6">
+        <div className="bg-accent w-full h-full rounded-4xl flex items-center justify-center p-12">
+          <div className="relative w-full h-full">
+            <Image
+              className="object-contain"
+              src="/login.svg"
+              alt="login"
+              fill
+            />
+          </div>
         </div>
-    )
+      </div>
+
+      {/* Login Form */}
+      <div className="flex flex-col gap-20 w-1/2 h-full justify-center items-center p-28">
+        <div className="flex flex-col gap-2 items-center justify-center">
+          <CustomLabel type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</CustomLabel>
+          <CustomLabel type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</CustomLabel>
+          <CustomLabel type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</CustomLabel>
+        </div>
+
+        <div className="flex flex-col gap-8 w-full">
+          <div className="flex flex-col gap-2 w-full">
+            <CustomLabel htmlFor="email">Email</CustomLabel>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 w-full">
+            <CustomLabel htmlFor="password">Password</CustomLabel>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {errorMessage && (
+          <p className="text-red-500 text-center w-full">{errorMessage}</p>
+        )}
+
+        <Button className="w-full" onClick={handleLogin} disabled={loading}>
+          {loading ? "Loading..." : "Masuk"}
+        </Button>
+      </div>
+    </div>
+  );
 }
+
