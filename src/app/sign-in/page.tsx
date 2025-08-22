@@ -30,6 +30,8 @@ export default function SignInPage() {
         const role = data.user.user_metadata?.role;
         if (role === "operator" || role === "dispatcher") {
           router.push("/");
+        } else {
+          setErrorMessage("Your account does not have access to this application.");
         }
       }
       else {
