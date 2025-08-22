@@ -35,7 +35,9 @@ export default function SignInPage() {
         }
       }
       else {
-        setErrorMessage("Login failed. Please check your credentials.");
+        setErrorMessage("Login failed. Please try again later.");
+        // Optionally log unexpected login failure for debugging
+        console.warn("Login failed: no error, but user is missing", { data, error });
       }
     }
 
