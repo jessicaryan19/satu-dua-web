@@ -21,7 +21,6 @@ export default function SignInPage() {
 
     const { data, error } = await signIn(email, password);
 
-    console.log(data)
 
     if (error) {
       setErrorMessage(error.message);
