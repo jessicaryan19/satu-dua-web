@@ -1,5 +1,4 @@
 "use client"
-import { BarChart3, FileText, Home } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -13,6 +12,8 @@ import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import { Label } from "../ui/label";
+import { useRouter } from "next/router";
+import { usePathname } from "next/navigation";
 
 type SidebarItem = {
   title: string,
@@ -20,26 +21,26 @@ type SidebarItem = {
   icon: string
 }
 
-const items: SidebarItem[] = [
+export const sidebarItems: SidebarItem[] = [
   {
     title: "Beranda",
-    url: "#",
+    url: "/",
     icon: "material-symbols:home-rounded",
   },
   {
     title: "Laporan",
-    url: "#",
+    url: "/report",
     icon: "mingcute:paper-fill",
   },
   {
     title: "Statistik",
-    url: "#",
+    url: "/statistic",
     icon: "bi:bar-chart-fill",
   },
 ]
 
 export default function AppSidebar() {
-  const [active, setActive] = useState("Beranda");
+  const pathname = usePathname();
 
   return (
     <Sidebar className="rounded-2xl">
@@ -55,20 +56,20 @@ export default function AppSidebar() {
         <SidebarMenu className="relative flex ps-5 gap-2">
           <div className="absolute w-full pe-5">
             <div className={cn(
-              "relative w-full h-12 bg-white rounded-r-none rounded-l-2xl\
-              before:content-[''] before:h-8 before:w-10 before:absolute before:top-[-32] before:right-0 before:rounded-br-2xl before:shadow-[0_15px_0_0_#fff]",
-              "after:content-[''] after:h-8 after:w-10 after:absolute after:bottom-[-32] after:right-0 after:rounded-tr-2xl after:shadow-[0_-15px_0_0_#fff]",
+              "relative w-full h-14 bg-white rounded-r-none rounded-l-2xl\
+              before:content-[''] before:h-8 before:w-10 before:absolute before:top-[-32] before:right-0 before:rounded-br-2xl before:shadow-[10px_10px_0_0_#fff]",
+              "after:content-[''] after:h-8 after:w-10 after:absolute after:bottom-[-32] after:right-0 after:rounded-tr-2xl after:shadow-[10px_-10px_0_0_#fff]",
               "transition-transform duration-300 ease-in-out"
             )}
             style={{
-              transform: `translateY(${items.findIndex(item => item.title === active) * 3.5}rem)`
+              transform: `translateY(${sidebarItems.findIndex(item => item.url === pathname) * 4}rem)`
             }}/>
           </div>
 
-          {items.map((item) => (
+          {sidebarItems.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={active === item.title} className={cn("relative px-4 py-6 transition-colors duration-300 ease-in-out")}>
-                <a href={item.url} onClick={() => setActive(item.title)}>
+              <SidebarMenuButton asChild isActive={item.url === pathname} className={cn("relative px-4 py-7 transition-colors duration-300 ease-in-out")}>
+                <a href={item.url}>
                   <Icon icon={item.icon} />
                   <Label type='subtitle'>{item.title}</Label>
                 </a>
