@@ -1,4 +1,7 @@
 "use client"
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import DataCard from "@/components/cards/data-card";
 import IncomingCallCard from "@/components/cards/incoming-call-card";
 import ReportCard from "@/components/cards/report-card";
@@ -6,8 +9,8 @@ import { StatusSwitch } from "@/components/switches/status-switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import Image from "next/image";
-import { useState } from "react";
+
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const [isStatusActive, setIsStatusActive] = useState(false);
@@ -44,7 +47,7 @@ export default function Home() {
 
       <div className="relative w-1/3 flex flex-col justify-center items-center flex-1 p-12 gap-6">
         <div className="absolute w-full h-full py-4 ps-4 z-100">
-          <IncomingCallCard/>
+          <IncomingCallCard />
         </div>
         {isStatusActive ? (
           <>
