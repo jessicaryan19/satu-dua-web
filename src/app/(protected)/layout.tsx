@@ -20,7 +20,7 @@ export default function ProtectedLayout({
 
     // If there is no session, redirect to the login page
     if (!session) {
-      router.push("/login");
+      router.push("/sign-in");
     }
   }, [session, isLoading, router]);
 
