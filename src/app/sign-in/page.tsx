@@ -28,7 +28,7 @@ export default function SignInPage() {
     } else {
       if (data.user) {
         const role = data.user.user_metadata?.role;
-        if (role === "operator" || role == "dispatcher") {
+        if (role === "operator" || role === "dispatcher") {
           router.push("/");
         }
       }
