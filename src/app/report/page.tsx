@@ -8,6 +8,7 @@ export default function Report() {
             <div className="w-1/3 h-full flex flex-col flex-1 py-4 gap-6">
                 <OngoingCallCard />
                 <AIContainerCard/>
+                <AIContainerCard/>
             </div>
             <div className="w-2/3 h-full py-4 flex flex-col gap-6">
                 <ReportFormCard/>
