@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, DependencyList } from 'react';
 import { PostgrestError } from '@supabase/supabase-js';
 
 type QueryFunction<T> = () => Promise<{ data: T; error: PostgrestError | null }>;
@@ -9,7 +9,7 @@ interface UseSupabaseQueryOptions {
 
 export function useSupabaseQuery<T>(
   queryFn: QueryFunction<T>,
-  dependencies: any[] = [],
+  dependencies: DependencyList = [],
   options: UseSupabaseQueryOptions = {}
 ) {
   const { enabled = true } = options;
@@ -33,7 +33,7 @@ export function useSupabaseQuery<T>(
         } else {
           setData(queryData);
         }
-      } catch (e: any) {
+      } catch (e) {
         setError(e as PostgrestError);
       } finally {
         setLoading(false);

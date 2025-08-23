@@ -18,7 +18,7 @@ const mapCallStatusToReportStatus = (status: string): ReportStatus => {
 export default function ReportList() {
     const { session } = useAuth();
     const { data: reports, loading, error } = useSupabaseQuery<Report[]>(
-        () => ReportService.getOperatorReports(session?.user.id!),
+        () => ReportService.getOperatorReports(session?.user?.id ?? ''),
         [session],
         { enabled: !!session?.user.id }
     );

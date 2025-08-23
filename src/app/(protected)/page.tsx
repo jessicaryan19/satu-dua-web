@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
-import DataCard from "@/components/cards/data-card";
 import IncomingCallCard from "@/components/cards/incoming-call-card";
 import { StatusSwitch } from "@/components/switches/status-switch";
 import { Button } from "@/components/ui/button";
@@ -27,7 +26,7 @@ export default function Home() {
         </div>
 
         <DashboardDataCard/>
-        
+
         <Label type="title" className="text-primary px-4">Laporan Hari Ini</Label>
         <ReportList/>
       </div>

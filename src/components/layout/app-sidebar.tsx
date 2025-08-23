@@ -7,12 +7,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import { Label } from "../ui/label";
-import { useRouter } from "next/router";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 
