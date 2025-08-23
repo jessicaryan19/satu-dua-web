@@ -11,17 +11,17 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function SignInPage() {
   const router = useRouter();
-  const auth = useAuth();
+  const { session } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (auth.session) {
+    if (session) {
       router.push("/");
     }
-  }, []);
+  }, [session, router]);
 
 
   const handleLogin = async () => {
