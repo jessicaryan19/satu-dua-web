@@ -14,6 +14,7 @@ import { Icon } from "@iconify/react";
 import { Label } from "../ui/label";
 import { useRouter } from "next/router";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 type SidebarItem = {
   title: string,
@@ -52,7 +53,7 @@ export default function AppSidebar() {
           height={50}
         />
       </SidebarHeader>
-      <SidebarContent className="pt-10">
+      <SidebarContent className="pt-10 overflow-hidden">
         <SidebarMenu className="relative flex ps-5 gap-2">
           <div className="absolute w-full pe-5">
             <div className={cn(
@@ -69,10 +70,10 @@ export default function AppSidebar() {
           {sidebarItems.map((item) => (
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild isActive={item.url === pathname} className={cn("relative px-4 py-7 transition-colors duration-300 ease-in-out")}>
-                <a href={item.url}>
+                <Link href={item.url}>
                   <Icon icon={item.icon} />
-                  <Label type='subtitle'>{item.title}</Label>
-                </a>
+                  <Label type="subtitle">{item.title}</Label>
+                </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
