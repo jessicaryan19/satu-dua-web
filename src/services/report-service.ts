@@ -84,12 +84,15 @@ export const ReportService = {
 
       if (existingUsers && existingUsers.length > 0) {
         user = existingUsers[0];
+        if (!user) {
+          throw new Error("User object is null after fetching existing user.");
+        }
         // Update name and address if they're different
         const updateData: Partial<User> = {};
-        if (user?.name !== formData.callerName) {
+        if (user.name !== formData.callerName) {
           updateData.name = formData.callerName;
         }
-        if (formData.detailAddress && user?.address !== formData.detailAddress) {
+        if (formData.detailAddress && user.address !== formData.detailAddress) {
           updateData.address = formData.detailAddress;
         }
 
