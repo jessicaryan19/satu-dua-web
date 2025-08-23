@@ -4,28 +4,15 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
-import { SelectField, SelectOption } from "../form/SelectField";
+import { SelectField } from "../form/select-field";
 
 export default function ReportFormCard() {
-    const reportTypeOptions: SelectOption[] = [
-        { value: "darurat", label: "Darurat" },
-        { value: "non-darurat", label: "Non-darurat" },
-        { value: "informasi", label: "Informasi" },
-        { value: "prank", label: "Prank (palsu)" },
-        { value: "ghost", label: "Ghost (terputus/tidak jelas)" },
-    ]
-
-    const eventTypeOptions: SelectOption[] = [
-        { value: "kecelakaan", label: "Kecelakaan Lalu Lintas" },
-        { value: "kebakaranb", label: "Kebakaran" },
-        { value: "bencana alam", label: "Bencana Alam" },
-        { value: "tindak kriminal", label: "Tindak Kriminal" },
-        { value: "informasi umum", label: "Informasi Umum" },
-    ]
+    const reportTypeOptions: string[] = ["Darurat", "Non-darurat", "Informasi", "Prank (palsu)", "Ghost (terputus/tidak jelas)"]
+    const eventTypeOptions: string[] = ["Kecelakaan Lalu Lintas", "Kebakaran", "Bencana Alam", "Tindak Kriminal", "Informasi Umum"]
 
     // ini nanti fetch berdasarkan sent location
-    const kecamatanOptions: SelectOption[] = []
-    const kelurahanOptions: SelectOption[] = []
+    const kecamatanOptions: string[] = []
+    const kelurahanOptions: string[] = []
 
     return (
         <Card className="flex-1 flex flex-col gap-12">

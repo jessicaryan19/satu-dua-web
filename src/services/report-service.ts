@@ -1,5 +1,11 @@
 import { supabase } from "@/lib/supabase";
 
+export type OperatorReportJSON = {
+  event_type: string
+  kecamatan: string
+  kelurahan: string
+  report_type: string
+}
 export type Report = {
   id: string;
   created_at: string;
@@ -11,6 +17,7 @@ export type Report = {
     caller: { name: string };
     operator: { id: string; name: string };
   };
+  operator_report: OperatorReportJSON
 };
 
 export const ReportService = {
@@ -27,12 +34,13 @@ export const ReportService = {
           status,
           caller:caller_id ( name ),
           operator:operator_id ( id, name )
-        )
+        ),
+        operator_report
       `)
       .eq("call.operator_id", operatorId)
       .order("created_at", { ascending: false })
       .limit(10);
 
-    return {data: data as unknown as Report[] || [], error };
+    return { data: data as unknown as Report[] || [], error };
   },
 };

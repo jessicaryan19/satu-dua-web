@@ -1,11 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
-export type SelectOption = {
-    value: string,
-    label: string,
-}
 type SelectFieldProps = {
-    selectOptions: SelectOption[],
+    selectOptions: string[],
     placeholder: string,
 }
 
@@ -20,7 +16,7 @@ export function SelectField({
             </SelectTrigger>
             <SelectContent>
                 {selectOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    <SelectItem key={option} value={option}>{option}</SelectItem>
                 ))}
             </SelectContent>
         </Select>

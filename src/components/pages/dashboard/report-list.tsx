@@ -36,8 +36,8 @@ export default function ReportList() {
                             key={report.id}
                             id={report.id}
                             timestamp={new Date(report.call.started_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                            reportType="Darurat"
-                            eventType={report.ai_summary || "Tidak ada ringkasan"}
+                            reportType={report.operator_report.report_type}
+                            eventType={report.operator_report.event_type}
                             reportStatus={mapCallStatusToReportStatus(report.call.status)}
                         />
                     ))

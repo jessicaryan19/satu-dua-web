@@ -32,9 +32,9 @@ export default function Home() {
       </div>
 
       <div className="relative w-1/3 flex flex-col justify-center items-center p-12 gap-6 h-full">
-        <div className="absolute w-full h-full z-100">
-          <IncomingCallCard />
-        </div>
+        {/* <div className="absolute w-full h-full z-100"> */}
+          {/* <IncomingCallCard /> */}
+        {/* </div> */}
         {isStatusActive ? (
           <>
             <div className="relative w-full h-1/2">
@@ -44,7 +44,7 @@ export default function Home() {
               <Label type="defaultMuted" className="text-center w-full block">Siap melayani?</Label>
               <Label type="defaultMuted" className="text-center w-full">Tekan tombol ini dan bantu warga yang membutuhkan.</Label>
             </div>
-            <Button onClick={() => setIsStatusActive(!isStatusActive)}>Siap Bertugas</Button>
+            <Button onClick={() => setIsStatusActive(prev => !prev)}>Siap Bertugas</Button>
           </>
         ) : (
           <>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-import { signIn } from "@/services/authService"; // make sure this path is correct
+import { signIn } from "@/services/auth-service"; // make sure this path is correct
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -53,13 +53,13 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="flex w-screen h-screen">
+    <div className="w-full h-full flex">
       {/* Left Image */}
       <div className="w-1/2 h-full p-6">
         <div className="bg-accent w-full h-full rounded-4xl flex items-center justify-center p-12">
           <div className="relative w-full h-full">
             <Image
-              className="object-contain"
+              className="object-contain p-20"
               src="/login.svg"
               alt="login"
               fill

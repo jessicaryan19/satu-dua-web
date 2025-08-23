@@ -30,9 +30,11 @@ export default function RootLayout({
             {!isPublic && <AppSidebar />}
             <main className="w-screen h-screen overflow-hidden">
               <div className="w-full h-full flex flex-col overflow-hidden">
-                <div className="pt-4 px-4">
-                  {!isPublic && <AppTitle />}
-                </div>
+                {!isPublic &&
+                  <div className="pt-4 px-4">
+                    <AppTitle />
+                  </div>
+                }
                 <div className="flex-1 py-4 pr-4 overflow-hidden">
                   {children}
                 </div>
