@@ -1,7 +1,6 @@
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
-import { Pause } from "lucide-react";
 
 export default function OngoingCallCard() {
     return (
