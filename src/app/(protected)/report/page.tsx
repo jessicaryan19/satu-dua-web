@@ -47,7 +47,7 @@ export default function Report() {
     if (!callId || callId.trim() === '') {
       throw new Error("Cannot initialize CallService without valid callId");
     }
-    
+
     return CallServiceSingleton.getInstance({
       onError: (err: string) => {
         console.error("Call error:", err);
@@ -59,11 +59,11 @@ export default function Report() {
       },
       onWebSocketResponse: (uid: string, data: any) => {
         console.log("WS Response from user:", uid, data);
-        
+
         // Log specific message types for debugging
         if (data.type === 'message' && data.data) {
           console.log("Received message data:", data.data);
-          
+
           // Check if it looks like an analysis response
           if (data.data.call_id && data.data.analysis) {
             console.log("Found analysis in WebSocket message - this should trigger onAnalysisReceived");
@@ -76,7 +76,7 @@ export default function Report() {
         setAiAnalysis(analysis.analysis.reasoning);
         setAiRecommendation(analysis.analysis.suggestion);
         setConfidenceTrend(analysis.confidence_trend);
-        
+
         // If the call is completed, maybe auto-redirect or show completion status
         if (analysis.current_status === "completed") {
           console.log("Call analysis completed:", analysis.suggested_action);
@@ -99,7 +99,7 @@ export default function Report() {
     try {
       const callService = getCallService();
       const existingState = callService.getState();
-      
+
       // If we have a callId and either need to join or we're already in the right channel
       if (!existingState.joined || existingState.channelName !== callId) {
         // Need to join the channel
@@ -115,7 +115,7 @@ export default function Report() {
         // Already joined but call not started
         callService.startCall();
       }
-      
+
       // Fetch caller info
       fetchCallerInfo(callId);
 
@@ -128,9 +128,9 @@ export default function Report() {
           return event.returnValue;
         }
       };
-      
+
       window.addEventListener('beforeunload', beforeUnload);
-      
+
       return () => {
         window.removeEventListener('beforeunload', beforeUnload);
       };
@@ -162,7 +162,7 @@ export default function Report() {
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">No Call ID Provided</h2>
           <p className="text-gray-600 mb-4">You need a valid call ID to access this page.</p>
-          <button 
+          <button
             onClick={() => router.replace('/')}
             className="bg-primary text-white px-4 py-2 rounded"
           >
@@ -181,7 +181,7 @@ export default function Report() {
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Invalid Call ID</h2>
           <p className="text-gray-600 mb-4">The provided call ID is not valid.</p>
-          <button 
+          <button
             onClick={() => router.replace('/')}
             className="bg-primary text-white px-4 py-2 rounded"
           >
@@ -197,7 +197,7 @@ export default function Report() {
       console.warn("Cannot pause: no valid callId");
       return;
     }
-    
+
     try {
       const callService = getCallService();
       const success = await callService.pauseCall(!isPaused);
@@ -214,7 +214,7 @@ export default function Report() {
       console.warn("Cannot mute: no valid callId");
       return;
     }
-    
+
     try {
       const callService = getCallService();
       const success = await callService.muteAudio(!isMuted);
@@ -232,13 +232,13 @@ export default function Report() {
       router.replace('/');
       return;
     }
-    
+
     try {
       const callService = getCallService();
-      
+
       // Stop the call first
       callService.stopCall();
-      
+
       // Close the channel if we're the owner
       const state = callService.getState();
       if (state.isChannelOwner) {
@@ -246,10 +246,10 @@ export default function Report() {
       } else {
         callService.leaveChannel();
       }
-      
+
       // Reset the singleton since the call is completely finished
       CallServiceSingleton.resetInstance();
-      
+
       setCallActive(false);
       router.push('/');
     } catch (error) {
@@ -264,7 +264,7 @@ export default function Report() {
   return (
     <div className="flex w-full h-full gap-4">
       <div className="w-1/3 h-full flex flex-col ps-4 gap-4">
-        <OngoingCallCard 
+        <OngoingCallCard
           callId={callId || undefined}
           caller={caller}
           onPause={handlePause}
@@ -273,7 +273,7 @@ export default function Report() {
           isPaused={isPaused}
           isMuted={isMuted}
         />
-        
+
         {/* Debug info for development */}
         {process.env.NODE_ENV === 'development' && (
           <div className="bg-gray-100 p-2 rounded text-xs">
@@ -291,7 +291,7 @@ export default function Report() {
             )}
           </div>
         )}
-        
+
         <AIContainerCard
           title="Analisa Kejadian"
           result={aiAnalysis}
