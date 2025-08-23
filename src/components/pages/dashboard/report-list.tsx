@@ -7,9 +7,12 @@ import { Report, ReportService } from "@/services/report-service";
 const mapCallStatusToReportStatus = (status: string): ReportStatus => {
   switch (status) {
     case 'dispatched':
+      return 'dispatched';
     case 'disconnected':
+      return 'disconnected';
     case 'finished':
-      return status;
+    case 'ended': // Map 'ended' status to 'finished' to show "Selesai"
+      return 'finished';
     default:
       return 'disconnected';
   }

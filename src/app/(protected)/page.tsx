@@ -228,17 +228,6 @@ export default function Home() {
   useEffect(() => {
     const callService = getCallService();
 
-    // Initialize with some sample response times for demonstration
-    const initialResponseTimes = [
-      90000,  // 1.5 minutes
-      120000, // 2 minutes  
-      180000, // 3 minutes
-      150000, // 2.5 minutes
-      210000, // 3.5 minutes
-    ];
-    setResponseTimeData(initialResponseTimes);
-    setAverageResponseTime(calculateAverageResponseTime(initialResponseTimes));
-
     let interval: NodeJS.Timeout | null = null;
 
     // Poll every 5 seconds
@@ -295,7 +284,7 @@ export default function Home() {
       <div className="relative w-1/3 flex flex-col justify-center items-center p-12 gap-6 h-full">
         {/* Right panel */}
         <div className="absolute w-full h-full py-4 ps-4 z-100">
-          {incomingCall && (
+          {isStatusActive && incomingCall && (
             <IncomingCallCard
               call={incomingCall}
               onAccept={handleAnswer}
