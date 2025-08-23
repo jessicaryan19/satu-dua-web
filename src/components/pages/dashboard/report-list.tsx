@@ -5,23 +5,23 @@ import { useSupabaseQuery } from "@/hooks/use-supabase-query";
 import { Report, ReportService } from "@/services/report-service";
 
 const mapCallStatusToReportStatus = (status: string): ReportStatus => {
-    switch (status) {
-        case 'dispatched':
-        case 'disconnected':
-        case 'finished':
-            return status;
-        default:
-            return 'disconnected';
-    }
+  switch (status) {
+    case 'dispatched':
+    case 'disconnected':
+    case 'finished':
+      return status;
+    default:
+      return 'disconnected';
+  }
 };
 
 export default function ReportList() {
-    const { session } = useAuth();
-    const { data: reports, loading, error } = useSupabaseQuery<Report[]>(
-        () => ReportService.getOperatorReports(session?.user?.id ?? ''),
-        [session],
-        { enabled: !!session?.user.id }
-    );
+  const { session } = useAuth();
+  const { data: reports, loading, error } = useSupabaseQuery<Report[]>(
+    () => ReportService.getOperatorReports(session?.user?.id ?? ''),
+    [session],
+    { enabled: !!session?.user.id }
+  );
 
     return (
         <div className="flex-1 overflow-y-auto">
