@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
-import { signIn } from "@/services/authService"; // make sure this path is correct
+import { signIn, signOut } from "@/services/authService"; // make sure this path is correct
 import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
@@ -14,6 +14,8 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+
+  signOut()
 
   const handleLogin = async () => {
     setLoading(true);
@@ -56,50 +58,49 @@ export default function SignInPage() {
               fill
             />
           </div>
-          {/* Login Form */}
-          <div className="flex flex-col gap-20 w-1/2 h-full justify-center items-center p-28">
-            <div className="flex flex-col gap-2 items-center justify-center">
-              <Label type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</Label>
-              <Label type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</Label>
-              <Label type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</Label>
-            </div>
-
-            <div className="flex flex-col gap-8 w-full">
-              <div className="flex flex-col gap-2 w-full">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2 w-full">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {errorMessage && (
-              <p className="text-red-500 text-center w-full">{errorMessage}</p>
-            )}
-
-            <Button className="w-full" onClick={handleLogin} disabled={loading}>
-              {loading ? "Loading..." : "Masuk"}
-            </Button>
-          </div>
         </div>
       </div>
+      {/* Login Form */}
+      <div className="flex flex-col gap-20 w-1/2 h-full justify-center items-center p-28">
+        <div className="flex flex-col gap-2 items-center justify-center">
+          <Label type="title" className="text-primary text-center w-full">Bertugas Dengan Sigap,</Label>
+          <Label type="title" className="text-primary text-center w-full">Melayani Tanpa Ragu.</Label>
+          <Label type="subtitle" className="text-center w-full">Silahkan masuk untuk memulai.</Label>
+        </div>
 
+        <div className="flex flex-col gap-8 w-full">
+          <div className="flex flex-col gap-2 w-full">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2 w-full">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {errorMessage && (
+          <p className="text-red-500 text-center w-full">{errorMessage}</p>
+        )}
+
+        <Button className="w-full" onClick={handleLogin} disabled={loading}>
+          {loading ? "Loading..." : "Masuk"}
+        </Button>
+      </div>
     </div>
-  );
+  )
 }
 
