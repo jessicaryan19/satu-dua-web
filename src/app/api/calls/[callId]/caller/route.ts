@@ -1,26 +1,18 @@
 // app/api/calls/[callId]/caller/route.ts - Alternative approach
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 
-// Initialize Supabase client with satudua schema
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    db: {
-      schema: 'satudua'
-    }
-  }
-);
 
 export async function GET(
   request: Request,
-  { params }: { params: { callId: string } }
+  { params }: { params: Promise<{ callId: string }> }
 ) {
   try {
-    const { callId } = params; // This is the channelName
+    const { callId } = await params; // This is the channelName
 
     // First, get the call to find the caller_id from satudua.calls
+    // Since callId is actually channelName which is the same as call_id
     const { data: callData, error: callError } = await supabase
       .from('calls')
       .select('caller_id')

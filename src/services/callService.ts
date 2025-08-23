@@ -24,6 +24,25 @@ export interface CallCallbacks {
   onError?: (error: string) => void;
   onChannelClosed?: () => void;
   onHeartbeatStatus?: (isAlive: boolean) => void;
+  onAnalysisReceived?: (analysis: CallAnalysis) => void;
+}
+
+export interface CallAnalysis {
+  call_id: string;
+  analysis: {
+    is_prank_call: boolean;
+    confidence_score: number;
+    trust_score: number;
+    location: string;
+    reasoning: string;
+    key_indicators: string[];
+    suggestion: string;
+    escalation_required: boolean;
+  };
+  confidence_trend: number[];
+  current_status: string;
+  suggested_action: string;
+  update_timestamp: string;
 }
 
 export class CallService {
@@ -48,6 +67,10 @@ export class CallService {
 
   public getState(): Readonly<CallState> {
     return { ...this.state };
+  }
+
+  public updateCallbacks(newCallbacks: CallCallbacks): void {
+    this.callbacks = { ...this.callbacks, ...newCallbacks };
   }
 
   public async joinChannel(channelNameInput?: string): Promise<{ success: boolean; channelName?: string; error?: string }> {
@@ -116,7 +139,7 @@ export class CallService {
       console.log(`Successfully joined channel: ${channel} (Owner: ${isOwner})`);
       return { success: true, channelName: channel };
     } catch (error) {
-      const errorMessage = `Failed to join channel: ${error.message ?? "unknown error"}`;
+      const errorMessage = `Failed to join channel: ${error instanceof Error ? error.message : "unknown error"}`;
       console.error(errorMessage, error);
       this.callbacks.onError?.(errorMessage);
       return { success: false, error: errorMessage };
@@ -164,10 +187,28 @@ export class CallService {
   }
 
   public stopCall(): void {
+    // Clean up WebSocket connections first
     this.state.wsCleanupFns.forEach(cleanup => cleanup());
     this.state.wsCleanupFns = [];
     this.state.wsConnections = {};
+    
+    // Stop microphone track and unpublish
+    if (this.state.micTrack) {
+      this.state.micTrack.stop();
+      this.state.micTrack.close();
+    }
+    
+    // Unpublish all tracks from the client
+    if (this.state.client && this.state.joined) {
+      try {
+        this.state.client.unpublish();
+      } catch (error) {
+        console.warn("Error unpublishing tracks:", error);
+      }
+    }
+    
     this.state.callStarted = false;
+    console.log("Call stopped completely");
   }
 
   public leaveChannel(): void {
@@ -212,7 +253,7 @@ export class CallService {
       console.log("Successfully retrieved channel list:", channels);
       return { success: true, channels };
     } catch (error) {
-      const errorMessage = `Failed to list channels: ${error.message}`;
+      const errorMessage = `Failed to list channels: ${error instanceof Error ? error.message : String(error)}`;
       console.error(errorMessage, error);
       this.callbacks.onError?.(errorMessage);
       return { success: false, error: errorMessage };
@@ -255,7 +296,7 @@ export class CallService {
       console.log(`Successfully closed channel: ${this.state.channelName}`);
       return { success: true };
     } catch (error) {
-      const errorMessage = `Failed to close channel: ${error.message}`;
+      const errorMessage = `Failed to close channel: ${error instanceof Error ? error.message : String(error)}`;
       console.error(errorMessage, error);
       this.callbacks.onError?.(errorMessage);
       return { success: false, error: errorMessage };
@@ -302,6 +343,56 @@ export class CallService {
 
   public getActiveConnections(): string[] {
     return Object.keys(this.state.wsConnections);
+  }
+
+  public async muteAudio(mute: boolean = true): Promise<boolean> {
+    if (!this.state.micTrack) {
+      this.callbacks.onError?.("Cannot mute: no microphone track available");
+      return false;
+    }
+
+    try {
+      if (mute) {
+        await this.state.micTrack.setMuted(true);
+      } else {
+        await this.state.micTrack.setMuted(false);
+      }
+      console.log(`Audio ${mute ? 'muted' : 'unmuted'}`);
+      return true;
+    } catch (error) {
+      const errorMessage = `Failed to ${mute ? 'mute' : 'unmute'} audio: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMessage);
+      this.callbacks.onError?.(errorMessage);
+      return false;
+    }
+  }
+
+  public async pauseCall(pause: boolean = true): Promise<boolean> {
+    if (!this.state.client || !this.state.joined) {
+      this.callbacks.onError?.("Cannot pause: not joined to channel");
+      return false;
+    }
+
+    try {
+      if (pause) {
+        // Unpublish microphone track to pause transmission
+        if (this.state.micTrack) {
+          await this.state.client.unpublish([this.state.micTrack]);
+        }
+      } else {
+        // Re-publish microphone track to resume transmission
+        if (this.state.micTrack) {
+          await this.state.client.publish([this.state.micTrack]);
+        }
+      }
+      console.log(`Call ${pause ? 'paused' : 'resumed'}`);
+      return true;
+    } catch (error) {
+      const errorMessage = `Failed to ${pause ? 'pause' : 'resume'} call: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMessage);
+      this.callbacks.onError?.(errorMessage);
+      return false;
+    }
   }
 
   public async checkChannelHeartbeat(): Promise<boolean> {
@@ -395,6 +486,11 @@ export class CallService {
             JSON.parse(event.data) :
             event.data;
 
+          // Check if this is an analysis response
+          if (data.call_id && data.analysis && data.current_status) {
+            this.callbacks.onAnalysisReceived?.(data as CallAnalysis);
+          }
+
           this.callbacks.onWebSocketResponse?.(user.uid, { type: 'message', data });
         } catch (error) {
           // If not JSON, treat as binary or raw data
@@ -457,7 +553,7 @@ export class CallService {
       };
     } catch (error: unknown) {
       console.error("Failed to setup WebSocket for user:", user.uid, error);
-      this.callbacks.onError?.(`Failed to setup WebSocket for user ${user.uid}: ${error?.message}`);
+      this.callbacks.onError?.(`Failed to setup WebSocket for user ${user.uid}: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
   }

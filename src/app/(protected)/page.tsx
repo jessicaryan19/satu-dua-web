@@ -1,12 +1,12 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import IncomingCallCard from "@/components/cards/incoming-call-card";
 import { StatusSwitch } from "@/components/switches/status-switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { CallService } from "@/services/callService";
+import CallServiceSingleton from "@/lib/callServiceSingleton";
 import { useRouter } from 'next/navigation';
 
 import ReportList from "@/components/pages/dashboard/report-list";
@@ -24,6 +24,8 @@ interface CallWithCaller {
   channelName: string;
   status: string;
   caller?: CallerInfo;
+  created_at?: string;
+  answered_at?: string;
 }
 
 export default function Home() {
@@ -31,15 +33,18 @@ export default function Home() {
   const [isStatusActive, setIsStatusActive] = useState(false);
   const [incomingCall, setIncomingCall] = useState<CallWithCaller | null>(null);
   const [isLoadingCaller, setIsLoadingCaller] = useState(false);
+  const [queueCount, setQueueCount] = useState(0);
+  const [averageResponseTime, setAverageResponseTime] = useState<string>("0 menit");
+  const [responseTimeData, setResponseTimeData] = useState<number[]>([]);
+  const [totalCallsToday, setTotalCallsToday] = useState(0);
 
-  const callServiceRef = useRef<CallService | null>(null);
-
-  if (!callServiceRef.current) {
-    callServiceRef.current = new CallService({
-      onError: (err) => console.error("Call error:", err),
-      onWebSocketResponse: (uid, data) => console.log("WS:", uid, data),
+  // Get the singleton CallService instance
+  const getCallService = () => {
+    return CallServiceSingleton.getInstance({
+      onError: (err: string) => console.error("Call error:", err),
+      onWebSocketResponse: (uid: string, data: any) => console.log("WS:", uid, data),
     });
-  }
+  };
 
   // Function to fetch caller information from database
   async function fetchCallerInfo(callId: string): Promise<CallerInfo | null> {
@@ -55,9 +60,71 @@ export default function Home() {
     }
   }
 
+  // Function to calculate and format response time
+  function calculateAverageResponseTime(responseTimes: number[]): string {
+    if (responseTimes.length === 0) return "0 menit";
+    
+    const averageMs = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
+    const averageMinutes = averageMs / (1000 * 60);
+    
+    if (averageMinutes < 1) {
+      const averageSeconds = Math.round(averageMs / 1000);
+      return `${averageSeconds} detik`;
+    } else if (averageMinutes < 60) {
+      return `${Math.round(averageMinutes)} menit`;
+    } else {
+      const hours = Math.floor(averageMinutes / 60);
+      const minutes = Math.round(averageMinutes % 60);
+      return `${hours}j ${minutes}m`;
+    }
+  }
+
+  // Function to simulate or calculate response time for a call
+  function calculateCallResponseTime(call: any): number {
+    // If the call has timestamp data, calculate actual response time
+    if (call.created_at && call.answered_at) {
+      return new Date(call.answered_at).getTime() - new Date(call.created_at).getTime();
+    }
+    
+    // If only created_at is available, calculate time since creation (for waiting calls)
+    if (call.created_at) {
+      return Date.now() - new Date(call.created_at).getTime();
+    }
+    
+    // If no timestamp data, simulate realistic response times (for demo purposes)
+    // In real implementation, this would come from actual call data
+    const baseTime = 60000; // 1 minute base
+    const variance = Math.random() * 240000; // 0-4 minutes variance
+    return baseTime + variance;
+  }
+
   async function handleAnswer(call: CallWithCaller) {
-    const callService = callServiceRef.current!;
+    const callService = getCallService();
     console.log("Answering call:", call);
+
+    // Validate that we have a valid call with channel name
+    if (!call.channelName || call.channelName.trim() === '') {
+      console.error("Cannot answer call: invalid or missing channel name");
+      return;
+    }
+
+    // Record the time when call is answered for response time calculation
+    const answerTime = Date.now();
+    
+    // If call has creation time, calculate response time
+    if (call.created_at) {
+      const responseTime = answerTime - new Date(call.created_at).getTime();
+      setResponseTimeData(prev => {
+        const newData = [...prev, responseTime];
+        const updatedData = newData.slice(-10); // Keep only last 10
+        
+        // Calculate and update average response time
+        const newAverage = calculateAverageResponseTime(updatedData);
+        setAverageResponseTime(newAverage);
+        
+        return updatedData;
+      });
+    }
 
     // Step 1: Join the channel
     const joinResult = await callService.joinChannel(call.channelName);
@@ -70,42 +137,109 @@ export default function Home() {
     const started = callService.startCall();
     if (!started) {
       console.error("Failed to start call");
+      // Clean up if we can't start the call
+      callService.leaveChannel();
+      return;
     }
 
     if (started) {
-      router.push("/report?callId=" + call.channelName);
+      // Navigate to report page with callId - ensure it's a valid string
+      const callId = call.channelName.trim();
+      if (callId) {
+        router.push("/report?callId=" + encodeURIComponent(callId));
+      } else {
+        console.error("Cannot navigate to report: invalid callId");
+        callService.stopCall();
+        callService.leaveChannel();
+      }
     }
   }
 
+  // Memoize the polling function to prevent unnecessary re-renders
+  const pollCalls = useCallback(async () => {
+    const callService = getCallService();
+    const { success, channels } = await callService.listChannels();
+    
+    if (success && channels && channels.length > 0) {
+      // Count total calls in queue (waiting status)
+      const waitingCalls = channels.filter((c: any) => c.status === "waiting");
+      const activeCalls = channels.filter((c: any) => c.status === "active" || c.status === "ongoing");
+      const completedCalls = channels.filter((c: any) => c.status === "completed");
+      
+      // Update queue count
+      setQueueCount(waitingCalls.length);
+      
+      // Update total calls today (all statuses combined)
+      setTotalCallsToday(channels.length);
+      
+      // Calculate response times for completed calls
+      const responseTimes: number[] = [];
+      completedCalls.forEach((call: any) => {
+        const responseTime = calculateCallResponseTime(call);
+        responseTimes.push(responseTime);
+      });
+      
+      // Also include active calls for current waiting times
+      activeCalls.forEach((call: any) => {
+        if (call.created_at && !call.answered_at) {
+          const waitingTime = Date.now() - new Date(call.created_at).getTime();
+          responseTimes.push(waitingTime);
+        }
+      });
+      
+      // Update response time data (keep last 10 calls for better average)
+      if (responseTimes.length > 0) {
+        setResponseTimeData(prev => {
+          const newData = [...prev, ...responseTimes];
+          const updatedData = newData.slice(-10); // Keep only last 10 response times
+          
+          // Calculate and update average response time immediately
+          const newAverage = calculateAverageResponseTime(updatedData);
+          setAverageResponseTime(newAverage);
+          
+          return updatedData;
+        });
+      }
+
+      // For demo: show the first waiting call
+      const waitingCall = waitingCalls.find((c: any) => c.status === "waiting");
+
+      if (waitingCall) {
+        setIsLoadingCaller(true);
+
+        // Fetch caller information using the channel name as call ID
+        const callerInfo = await fetchCallerInfo(waitingCall.channelName);
+
+        setIncomingCall({
+          ...waitingCall,
+          caller: callerInfo
+        });
+        setIsLoadingCaller(false);
+      } else {
+        setIncomingCall(null);
+      }
+    } else {
+      // No channels available
+      setQueueCount(0);
+      setIncomingCall(null);
+    }
+  }, []); // Empty dependency array since the function doesn't depend on any state
+
   useEffect(() => {
-    const callService = new CallService();
+    const callService = getCallService();
+
+    // Initialize with some sample response times for demonstration
+    const initialResponseTimes = [
+      90000,  // 1.5 minutes
+      120000, // 2 minutes  
+      180000, // 3 minutes
+      150000, // 2.5 minutes
+      210000, // 3.5 minutes
+    ];
+    setResponseTimeData(initialResponseTimes);
+    setAverageResponseTime(calculateAverageResponseTime(initialResponseTimes));
 
     let interval: NodeJS.Timeout | null = null;
-
-    async function pollCalls() {
-      const { success, channels } = await callService.listChannels();
-      if (success && channels && channels.length > 0) {
-        // For demo: show the first waiting call
-        const waitingCall = channels.find(
-          (c: any) => c.status === "waiting"
-        );
-
-        if (waitingCall) {
-          setIsLoadingCaller(true);
-
-          // Fetch caller information using the channel name as call ID
-          const callerInfo = await fetchCallerInfo(waitingCall.channelName);
-
-          setIncomingCall({
-            ...waitingCall,
-            caller: callerInfo
-          });
-          setIsLoadingCaller(false);
-        } else {
-          setIncomingCall(null);
-        }
-      }
-    }
 
     // Poll every 5 seconds
     pollCalls();
@@ -114,7 +248,7 @@ export default function Home() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [pollCalls]); // Now depends on the memoized pollCalls function
 
   return (
     <div className="flex h-full gap-4">
@@ -133,7 +267,26 @@ export default function Home() {
           </div>
         </div>
 
-        <DashboardDataCard/>
+        <DashboardDataCard 
+          queueCount={queueCount}
+          averageResponseTime={averageResponseTime}
+        />
+
+        {/* Debug info for development */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-gray-100 p-4 mx-4 rounded text-xs">
+            <h4 className="font-semibold mb-2">Debug Info (Development Only)</h4>
+            <div><strong>Current Queue Count:</strong> {queueCount}</div>
+            <div><strong>Total Calls Today:</strong> {totalCallsToday}</div>
+            <div><strong>Average Response Time:</strong> {averageResponseTime}</div>
+            <div><strong>Response Time Samples:</strong> {responseTimeData.length}</div>
+            <div><strong>Status Active:</strong> {isStatusActive ? 'Yes' : 'No'}</div>
+            <div><strong>Incoming Call:</strong> {incomingCall ? incomingCall.channelName : 'None'}</div>
+            {responseTimeData.length > 0 && (
+              <div><strong>Latest Response Times (ms):</strong> {responseTimeData.slice(-3).map(t => Math.round(t/1000)).join(', ')}s</div>
+            )}
+          </div>
+        )}
 
         <Label type="title" className="text-primary px-4">Laporan Hari Ini</Label>
         <ReportList/>
