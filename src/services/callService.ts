@@ -116,7 +116,7 @@ export class CallService {
       console.log(`Successfully joined channel: ${channel} (Owner: ${isOwner})`);
       return { success: true, channelName: channel };
     } catch (error) {
-      const errorMessage = `Failed to join channel: ${error.message}`;
+      const errorMessage = `Failed to join channel: ${error.message ?? "unknown error"}`;
       console.error(errorMessage, error);
       this.callbacks.onError?.(errorMessage);
       return { success: false, error: errorMessage };
@@ -191,7 +191,7 @@ export class CallService {
 
   public async listChannels(): Promise<{ success: boolean; channels?: any[]; error?: string }> {
     try {
-      const apiEndpoint = `${process.env.NEXT_PUBLIC_AGORA_CREDENTIALS_API}/list-call` || "http://localhost:3000/api/list-call";
+      const apiEndpoint = `${process.env.NEXT_PUBLIC_AGORA_CREDENTIALS_API}/call-list` || "http://localhost:3000/api/list-call";
       const requestOptions = {
         method: "GET",
         headers: {
@@ -452,9 +452,9 @@ export class CallService {
         // Remove from connections tracking
         delete this.state.wsConnections[user.uid];
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to setup WebSocket for user:", user.uid, error);
-      this.callbacks.onError?.(`Failed to setup WebSocket for user ${user.uid}: ${error.message}`);
+      this.callbacks.onError?.(`Failed to setup WebSocket for user ${user.uid}: ${error?.message}`);
       return null;
     }
   }

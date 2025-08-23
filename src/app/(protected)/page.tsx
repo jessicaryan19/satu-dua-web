@@ -1,5 +1,5 @@
-"use client"
-import { useEffect, useState } from "react";
+"use client";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DataCard from "@/components/cards/data-card";
@@ -9,19 +9,80 @@ import { StatusSwitch } from "@/components/switches/status-switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
-
-import { supabase } from "@/lib/supabase";
+import { CallService } from "@/services/callService"; // path to your CallService
 
 export default function Home() {
   const [isStatusActive, setIsStatusActive] = useState(false);
+  const [incomingCall, setIncomingCall] = useState<any | null>(null);
+
+  const callServiceRef = useRef<CallService | null>(null);
+
+  if (!callServiceRef.current) {
+    callServiceRef.current = new CallService({
+      onError: (err) => console.error("Call error:", err),
+      onWebSocketResponse: (uid, data) => console.log("WS:", uid, data),
+    });
+  }
+
+  async function handleAnswer(call: any) {
+    const callService = callServiceRef.current!;
+    console.log("Answering call:", call);
+
+    // Step 1: Join the channel
+    const joinResult = await callService.joinChannel(call.channelName);
+    if (!joinResult.success) {
+      console.error("Failed to join call:", joinResult.error);
+      return;
+    }
+
+    // Step 2: Start the call (audio + WS)
+    const started = callService.startCall();
+    if (!started) {
+      console.error("Failed to start call");
+    }
+  }
+
+
+  useEffect(() => {
+    const callService = new CallService();
+
+    let interval: NodeJS.Timeout | null = null;
+
+    async function pollCalls() {
+      const { success, channels } = await callService.listChannels();
+      if (success && channels && channels.length > 0) {
+        // For demo: show the first waiting call
+        const waitingCall = channels.find(
+          (c: any) => c.status === "waiting" // adjust according to your API response
+        );
+        if (waitingCall) {
+          setIncomingCall(waitingCall);
+        } else {
+          setIncomingCall(null);
+        }
+      }
+    }
+
+    // Poll every 5 seconds
+    pollCalls();
+    interval = setInterval(pollCalls, 5000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div className="flex w-full">
       <div className="w-2/3 h-full py-4 flex flex-col gap-6">
+        {/* Header status */}
         <div className="flex justify-between items-center">
           <div className="flex gap-4 items-center justify-center">
             <Label type="subtitle">Status</Label>
-            <StatusSwitch checked={isStatusActive} onCheckedChange={setIsStatusActive} />
+            <StatusSwitch
+              checked={isStatusActive}
+              onCheckedChange={setIsStatusActive}
+            />
           </div>
           <div className="flex gap-2 items-center justify-center">
             <Icon icon="bi:people-fill" className="text-primary" />
@@ -29,26 +90,35 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Stats cards */}
         <div className="w-full flex gap-4">
           <DataCard title="Total Laporan Hari Ini" value="68" icon="carbon:report" />
           <DataCard title="Total Antrian" value="127" icon="solar:incoming-call-bold" />
-          <DataCard title="Waktu Respons" value="10 menit" icon="icon-park-solid:timer" theme="red" />
+          <DataCard
+            title="Waktu Respons"
+            value="10 menit"
+            icon="icon-park-solid:timer"
+            theme="red"
+          />
         </div>
 
         <Label type="title" className="text-primary">Laporan Hari Ini</Label>
 
+        {/* Reports list */}
         <div className="w-full h-full flex flex-col gap-4">
-          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"finished"} />
-          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"disconnected"} />
-          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"dispatched"} />
-          <ReportCard id={"ID 2507202100025"} timestamp={"13:26"} reportType={"Darurat"} eventType={"Kriminalitas"} reportStatus={"dispatched"} />
+          <ReportCard id="ID 2507202100025" timestamp="13:26" reportType="Darurat" eventType="Kriminalitas" reportStatus="finished" />
+          <ReportCard id="ID 2507202100025" timestamp="13:26" reportType="Darurat" eventType="Kriminalitas" reportStatus="disconnected" />
+          <ReportCard id="ID 2507202100025" timestamp="13:26" reportType="Darurat" eventType="Kriminalitas" reportStatus="dispatched" />
+          <ReportCard id="ID 2507202100025" timestamp="13:26" reportType="Darurat" eventType="Kriminalitas" reportStatus="dispatched" />
         </div>
       </div>
 
+      {/* Right panel */}
       <div className="relative w-1/3 flex flex-col justify-center items-center flex-1 p-12 gap-6">
         <div className="absolute w-full h-full py-4 ps-4 z-100">
-          <IncomingCallCard />
+          {incomingCall && <IncomingCallCard call={incomingCall} onAccept={handleAnswer} />}
         </div>
+
         {isStatusActive ? (
           <>
             <div className="relative w-full h-1/2">
@@ -76,7 +146,9 @@ export default function Home() {
               />
             </div>
             <div>
-              <Label type="defaultMuted" className="text-center w-full block">Belum ada panggilan masuk.</Label>
+              <Label type="defaultMuted" className="text-center w-full block">
+                Belum ada panggilan masuk.
+              </Label>
             </div>
           </>
         )}
@@ -84,3 +156,4 @@ export default function Home() {
     </div>
   );
 }
+
