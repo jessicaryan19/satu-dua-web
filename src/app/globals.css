@@ -159,3 +159,11 @@
     box-shadow: 0 0 50px 0 rgba(217, 0, 0, 0.5);
   }
 }
+
+.gradient-text {
+  @apply bg-gradient-to-r from-[#172090] to-[#FF0101] bg-clip-text text-transparent
+}
+
+.gradient-primary {
+  @apply bg-gradient-to-r from-[#172090] to-[#FF0101]
+}
