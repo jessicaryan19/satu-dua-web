@@ -226,13 +226,16 @@ export class CallService {
       return { success: false, error };
     }
 
+    if (!process.env.NEXT_PUBLIC_OPERATOR_KEY) {
+      console.warn("Warning: NEXT_PUBLIC_OPERATOR_KEY environment variable is not set.");
+    }
     try {
       const apiEndpoint = `${process.env.NEXT_PUBLIC_AGORA_CREDENTIALS_API}/end-call` || "http://localhost:3000/api/end-call";
       const requestOptions = {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-operator-key": "supersecret_operator_key"
+          "x-operator-key": process.env.NEXT_PUBLIC_OPERATOR_KEY || ""
         },
         body: JSON.stringify({ channelName: this.state.channelName })
       };
