@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import DataCard from "@/components/cards/data-card";
 import IncomingCallCard from "@/components/cards/incoming-call-card";
 import ReportCard from "@/components/cards/report-card";
@@ -9,11 +8,27 @@ import { StatusSwitch } from "@/components/switches/status-switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { CallService } from "@/services/callService"; // path to your CallService
+import { CallService } from "@/services/callService";
+
+// Type definitions
+interface CallerInfo {
+  id: string;
+  name: string;
+  phone_number: string;
+  address?: string;
+}
+
+interface CallWithCaller {
+  id: string;
+  channelName: string;
+  status: string;
+  caller?: CallerInfo;
+}
 
 export default function Home() {
   const [isStatusActive, setIsStatusActive] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<any | null>(null);
+  const [incomingCall, setIncomingCall] = useState<CallWithCaller | null>(null);
+  const [isLoadingCaller, setIsLoadingCaller] = useState(false);
 
   const callServiceRef = useRef<CallService | null>(null);
 
@@ -24,7 +39,21 @@ export default function Home() {
     });
   }
 
-  async function handleAnswer(call: any) {
+  // Function to fetch caller information from database
+  async function fetchCallerInfo(callId: string): Promise<CallerInfo | null> {
+    try {
+      const response = await fetch(`/api/calls/${callId}/caller`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch caller info');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching caller info:', error);
+      return null;
+    }
+  }
+
+  async function handleAnswer(call: CallWithCaller) {
     const callService = callServiceRef.current!;
     console.log("Answering call:", call);
 
@@ -42,7 +71,6 @@ export default function Home() {
     }
   }
 
-
   useEffect(() => {
     const callService = new CallService();
 
@@ -53,10 +81,20 @@ export default function Home() {
       if (success && channels && channels.length > 0) {
         // For demo: show the first waiting call
         const waitingCall = channels.find(
-          (c: any) => c.status === "waiting" // adjust according to your API response
+          (c: any) => c.status === "waiting"
         );
+
         if (waitingCall) {
-          setIncomingCall(waitingCall);
+          setIsLoadingCaller(true);
+
+          // Fetch caller information using the channel name as call ID
+          const callerInfo = await fetchCallerInfo(waitingCall.channelName);
+
+          setIncomingCall({
+            ...waitingCall,
+            caller: callerInfo
+          });
+          setIsLoadingCaller(false);
         } else {
           setIncomingCall(null);
         }
@@ -116,7 +154,13 @@ export default function Home() {
       {/* Right panel */}
       <div className="relative w-1/3 flex flex-col justify-center items-center flex-1 p-12 gap-6">
         <div className="absolute w-full h-full py-4 ps-4 z-100">
-          {incomingCall && <IncomingCallCard call={incomingCall} onAccept={handleAnswer} />}
+          {incomingCall && (
+            <IncomingCallCard
+              call={incomingCall}
+              onAccept={handleAnswer}
+              isLoading={isLoadingCaller}
+            />
+          )}
         </div>
 
         {isStatusActive ? (
@@ -156,4 +200,3 @@ export default function Home() {
     </div>
   );
 }
-
