@@ -9,8 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.7",
+    "@radix-ui/react-select": "^2.2.6",
+    "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.54.0",
     "agora-rtc-sdk-ng": "^4.24.0",
     "class-variance-authority": "^0.7.1",
@@ -23,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@iconify/react": "^6.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
