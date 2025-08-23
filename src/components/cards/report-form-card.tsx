@@ -14,12 +14,14 @@ interface ReportFormCardProps {
   aiAnalysis?: string;
   aiRecommendation?: string;
   operatorId: string; // This should be passed from your auth context/session
+  onReportSaved?: () => void; // Callback when report is successfully saved
 }
 
 export default function ReportFormCard({
   aiAnalysis,
   aiRecommendation,
-  operatorId
+  operatorId,
+  onReportSaved
 }: ReportFormCardProps) {
   const [formData, setFormData] = useState<ReportFormData>({
     callerPhone: "",
@@ -92,6 +94,10 @@ export default function ReportFormCard({
 
       if (result.success) {
         toast.success(`Laporan berhasil disimpan dengan ID: ${result.reportId}`);
+        // Call the callback to notify parent that report has been saved
+        if (onReportSaved) {
+          onReportSaved();
+        }
         // Optionally reset form or redirect
         // setFormData({ ... empty form data ... });
       } else {

@@ -11,26 +11,89 @@ import { useState, useEffect } from "react";
 export default function Report() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callId = searchParams.get('callId');
+  const callIdParam = searchParams.get('callId');
   const { session } = useAuth();
   const operatorId = session?.user.id;
 
-  // Early redirect if no callId is provided
-  useEffect(() => {
-    if (!callId || callId.trim() === '') {
-      console.warn("No valid callId provided, redirecting to dashboard");
-      router.replace('/');
-      return;
-    }
+  // States for managing the active call
+  const [callId, setCallId] = useState<string | null>(null);
+  const [reportSaved, setReportSaved] = useState(false);
+  const [loadingLatestCall, setLoadingLatestCall] = useState(false);
 
-    // Additional validation - check if callId contains only valid characters
-    const validCallIdPattern = /^[a-zA-Z0-9_-]+$/;
-    if (!validCallIdPattern.test(callId.trim())) {
-      console.warn("Invalid callId format, redirecting to dashboard");
+  // Get latest answered call if no callId provided
+  useEffect(() => {
+    const getLatestCall = async () => {
+      // If callId is provided in URL, use it
+      if (callIdParam && callIdParam.trim() !== '') {
+        // Additional validation - check if callId contains only valid characters
+        const validCallIdPattern = /^[a-zA-Z0-9_-]+$/;
+        if (validCallIdPattern.test(callIdParam.trim())) {
+          setCallId(callIdParam);
+          return;
+        } else {
+          console.warn("Invalid callId format provided");
+        }
+      }
+
+      // If no valid callId provided, check if there's an active call in the CallService
+      setLoadingLatestCall(true);
+      try {
+        const callService = CallServiceSingleton.getInstance();
+        const currentState = callService.getState();
+        
+        // If there's an active call in the service, use it
+        if (currentState.joined && currentState.channelName) {
+          console.log("Using active call from CallService:", currentState.channelName);
+          setCallId(currentState.channelName);
+          setLoadingLatestCall(false);
+          return;
+        }
+
+        // If no active call in service, try to find one from the channel list
+        const { success, channels } = await callService.listChannels();
+        
+        if (success && channels && channels.length > 0) {
+          // Find any waiting call that can be answered
+          const waitingCalls = channels.filter((c: any) => c.status === "waiting");
+          
+          if (waitingCalls.length > 0) {
+            // Use the first waiting call
+            const callToUse = waitingCalls[0];
+            const channelName = callToUse.channelName || callToUse.call_id || callToUse.id;
+            
+            if (channelName) {
+              console.log("Using waiting call:", channelName);
+              setCallId(channelName);
+            } else {
+              console.warn("No valid channel name found in waiting calls");
+              router.replace('/');
+            }
+          } else {
+            console.warn("No waiting calls found");
+            router.replace('/');
+          }
+        } else {
+          console.warn("No calls available");
+          router.replace('/');
+        }
+      } catch (error) {
+        console.error("Error fetching latest call:", error);
+        router.replace('/');
+      } finally {
+        setLoadingLatestCall(false);
+      }
+    };
+
+    getLatestCall();
+  }, [callIdParam, operatorId, router]);
+
+  // Redirect if report has been saved
+  useEffect(() => {
+    if (reportSaved) {
+      console.log("Report saved, redirecting to dashboard");
       router.replace('/');
-      return;
     }
-  }, [callId, router]);
+  }, [reportSaved, router]);
 
   // AI analysis and recommendation states
   const [aiAnalysis, setAiAnalysis] = useState<string>("");
@@ -155,13 +218,25 @@ export default function Report() {
     }
   }
 
+  // Don't render anything if still loading the latest call
+  if (loadingLatestCall) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Loading Latest Call...</h2>
+          <p className="text-gray-600 mb-4">Please wait while we fetch your active call.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Don't render anything if callId is null or empty
   if (!callId || callId.trim() === '') {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">No Call ID Provided</h2>
-          <p className="text-gray-600 mb-4">You need a valid call ID to access this page.</p>
+          <h2 className="text-xl font-semibold mb-2">No Active Call Found</h2>
+          <p className="text-gray-600 mb-4">No active call available for reporting.</p>
           <button
             onClick={() => router.replace('/')}
             className="bg-primary text-white px-4 py-2 rounded"
@@ -306,6 +381,7 @@ export default function Report() {
           aiAnalysis={aiAnalysis}
           aiRecommendation={aiRecommendation || resultTempExample}
           operatorId={operatorId ?? "No Operator"}
+          onReportSaved={() => setReportSaved(true)}
         />
       </div>
     </div>

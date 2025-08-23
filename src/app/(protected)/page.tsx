@@ -63,10 +63,10 @@ export default function Home() {
   // Function to calculate and format response time
   function calculateAverageResponseTime(responseTimes: number[]): string {
     if (responseTimes.length === 0) return "0 menit";
-    
+
     const averageMs = responseTimes.reduce((sum, time) => sum + time, 0) / responseTimes.length;
     const averageMinutes = averageMs / (1000 * 60);
-    
+
     if (averageMinutes < 1) {
       const averageSeconds = Math.round(averageMs / 1000);
       return `${averageSeconds} detik`;
@@ -85,12 +85,12 @@ export default function Home() {
     if (call.created_at && call.answered_at) {
       return new Date(call.answered_at).getTime() - new Date(call.created_at).getTime();
     }
-    
+
     // If only created_at is available, calculate time since creation (for waiting calls)
     if (call.created_at) {
       return Date.now() - new Date(call.created_at).getTime();
     }
-    
+
     // If no timestamp data, simulate realistic response times (for demo purposes)
     // In real implementation, this would come from actual call data
     const baseTime = 60000; // 1 minute base
@@ -110,18 +110,18 @@ export default function Home() {
 
     // Record the time when call is answered for response time calculation
     const answerTime = Date.now();
-    
+
     // If call has creation time, calculate response time
     if (call.created_at) {
       const responseTime = answerTime - new Date(call.created_at).getTime();
       setResponseTimeData(prev => {
         const newData = [...prev, responseTime];
         const updatedData = newData.slice(-10); // Keep only last 10
-        
+
         // Calculate and update average response time
         const newAverage = calculateAverageResponseTime(updatedData);
         setAverageResponseTime(newAverage);
-        
+
         return updatedData;
       });
     }
@@ -159,26 +159,26 @@ export default function Home() {
   const pollCalls = useCallback(async () => {
     const callService = getCallService();
     const { success, channels } = await callService.listChannels();
-    
+
     if (success && channels && channels.length > 0) {
       // Count total calls in queue (waiting status)
       const waitingCalls = channels.filter((c: any) => c.status === "waiting");
       const activeCalls = channels.filter((c: any) => c.status === "active" || c.status === "ongoing");
       const completedCalls = channels.filter((c: any) => c.status === "completed");
-      
+
       // Update queue count
       setQueueCount(waitingCalls.length);
-      
+
       // Update total calls today (all statuses combined)
       setTotalCallsToday(channels.length);
-      
+
       // Calculate response times for completed calls
       const responseTimes: number[] = [];
       completedCalls.forEach((call: any) => {
         const responseTime = calculateCallResponseTime(call);
         responseTimes.push(responseTime);
       });
-      
+
       // Also include active calls for current waiting times
       activeCalls.forEach((call: any) => {
         if (call.created_at && !call.answered_at) {
@@ -186,17 +186,17 @@ export default function Home() {
           responseTimes.push(waitingTime);
         }
       });
-      
+
       // Update response time data (keep last 10 calls for better average)
       if (responseTimes.length > 0) {
         setResponseTimeData(prev => {
           const newData = [...prev, ...responseTimes];
           const updatedData = newData.slice(-10); // Keep only last 10 response times
-          
+
           // Calculate and update average response time immediately
           const newAverage = calculateAverageResponseTime(updatedData);
           setAverageResponseTime(newAverage);
-          
+
           return updatedData;
         });
       }
@@ -256,7 +256,7 @@ export default function Home() {
           </div>
         </div>
 
-        <DashboardDataCard 
+        <DashboardDataCard
           queueCount={queueCount}
           averageResponseTime={averageResponseTime}
         />
@@ -272,19 +272,19 @@ export default function Home() {
             <div><strong>Status Active:</strong> {isStatusActive ? 'Yes' : 'No'}</div>
             <div><strong>Incoming Call:</strong> {incomingCall ? incomingCall.channelName : 'None'}</div>
             {responseTimeData.length > 0 && (
-              <div><strong>Latest Response Times (ms):</strong> {responseTimeData.slice(-3).map(t => Math.round(t/1000)).join(', ')}s</div>
+              <div><strong>Latest Response Times (ms):</strong> {responseTimeData.slice(-3).map(t => Math.round(t / 1000)).join(', ')}s</div>
             )}
           </div>
         )}
 
         <Label type="title" className="text-primary px-4">Laporan Hari Ini</Label>
-        <ReportList/>
+        <ReportList />
       </div>
 
       <div className="relative w-1/3 flex flex-col justify-center items-center p-12 gap-6 h-full">
         {/* Right panel */}
         <div className="absolute w-full h-full py-4 ps-4 z-100">
-          {isStatusActive && incomingCall && (
+          {!isStatusActive && incomingCall && (
             <IncomingCallCard
               call={incomingCall}
               onAccept={handleAnswer}
