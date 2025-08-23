@@ -23,16 +23,19 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${nunito_sans.className} antialiased w-screen h-screen overflow-hidden`}
+        className={`${nunito_sans.className} antialiased`}
       >
         <AuthProvider>
-
           <SidebarProvider>
             {!isPublic && <AppSidebar />}
-            <main className="p-4 w-screen h-screen relative">
-              {!isPublic && <AppTitle />}
-              <div className="w-full h-full">
-                {children}
+            <main className="w-screen h-screen overflow-hidden">
+              <div className="w-full h-full flex flex-col overflow-hidden">
+                <div className="pt-4 px-4">
+                  {!isPublic && <AppTitle />}
+                </div>
+                <div className="flex-1 py-4 pr-4 overflow-hidden">
+                  {children}
+                </div>
               </div>
             </main>
           </SidebarProvider>

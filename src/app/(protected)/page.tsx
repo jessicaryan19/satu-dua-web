@@ -85,32 +85,30 @@ export default function Home() {
   }, [operatorId]);
 
   return (
-    <div className="flex w-full">
-      {/* LEFT SIDE */}
-      <div className="w-2/3 h-full py-4 flex flex-col gap-6">
-        {/* Top status */}
-        <div className="flex justify-between items-center">
-          <div className="flex gap-4 items-center justify-center">
+    <div className="flex h-full gap-4">
+      <div className="w-2/3 flex flex-col gap-4 h-full">
+        <div className="flex justify-between items-center px-4">
+          <div className="flex gap-4 items-center">
             <Label type="subtitle">Status</Label>
             <StatusSwitch checked={isStatusActive} onCheckedChange={setIsStatusActive} />
           </div>
-          <div className="flex gap-2 items-center justify-center">
+          <div className="flex gap-2 items-center">
             <Icon icon="bi:people-fill" className="text-primary" />
             <Label>15/20 operator bertugas</Label>
           </div>
         </div>
 
-        {/* Data cards */}
-        <div className="w-full flex gap-4">
+        <div className="w-full flex gap-4 px-4 pb-4">
           <DataCard title="Total Laporan Hari Ini" value={reports.length.toString()} icon="carbon:report" />
           <DataCard title="Total Antrian" value="127" icon="solar:incoming-call-bold" />
           <DataCard title="Waktu Respons" value="10 menit" icon="icon-park-solid:timer" theme="red" />
         </div>
 
-        {/* Reports list */}
-        <Label type="title" className="text-primary">Laporan Hari Ini</Label>
-        <div className="w-full h-full flex flex-col gap-4">
-          {reports.length > 0 ? (
+        <Label type="title" className="text-primary px-4">Laporan Hari Ini</Label>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col gap-4 p-4">
+            {reports.length > 0 ? (
             reports.map((report) => (
               <ReportCard
                 key={report.id}
@@ -124,12 +122,12 @@ export default function Home() {
           ) : (
             <Label type="defaultMuted" className="text-center w-full block">Belum ada laporan untuk Anda.</Label>
           )}
+          </div>
         </div>
       </div>
 
-      {/* RIGHT SIDE */}
-      <div className="relative w-1/3 flex flex-col justify-center items-center flex-1 p-12 gap-6">
-        <div className="absolute w-full h-full py-4 ps-4 z-100">
+      <div className="relative w-1/3 flex flex-col justify-center items-center p-12 gap-6 h-full">
+        <div className="absolute w-full h-full z-100">
           <IncomingCallCard />
         </div>
         {isStatusActive ? (
