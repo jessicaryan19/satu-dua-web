@@ -1,15 +1,14 @@
 "use client";
 import { useState } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
-import { Button } from "../ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-
-import { SelectField, SelectOption } from "../form/SelectField";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { SelectField, SelectOption } from '@/components/form/select-field';
 import { ReportService, ReportFormData } from "@/services/report-service";
-import { toast } from "sonner"; // assuming you're using sonner for toasts
+import { toast } from "sonner";
 
 interface ReportFormCardProps {
   aiAnalysis?: string;
