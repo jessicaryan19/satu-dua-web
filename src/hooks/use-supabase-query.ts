@@ -1,14 +1,28 @@
 import { useState, useEffect } from 'react';
 import { PostgrestError } from '@supabase/supabase-js';
 
-type QueryFunction<T> = () => Promise<any>;
+type QueryFunction<T> = () => Promise<{ data: T; error: PostgrestError | null }>;
 
-export function useSupabaseQuery<T>(queryFn: QueryFunction<T>, dependencies: any[] = []) {
+interface UseSupabaseQueryOptions {
+  enabled?: boolean;
+}
+
+export function useSupabaseQuery<T>(
+  queryFn: QueryFunction<T>,
+  dependencies: any[] = [],
+  options: UseSupabaseQueryOptions = {}
+) {
+  const { enabled = true } = options;
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<PostgrestError | null>(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false); // skip loading if not enabled
+      return;
+    }
+
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -27,8 +41,7 @@ export function useSupabaseQuery<T>(queryFn: QueryFunction<T>, dependencies: any
     };
 
     fetchData();
-
-  }, dependencies);
+  }, [...dependencies, enabled]);
 
   return { data, loading, error };
 }
