@@ -10,19 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
 import { supabase } from "@/lib/supabase";
-
-type ReportRow = {
-  id: string;
-  created_at: string;
-  ai_summary: string | null;
-  call: {
-    id: string;
-    started_at: string;
-    status: string;
-    caller: { name: string };
-    operator: { id: string; name: string };
-  };
-};
+import { useSupabaseQuery } from "@/hooks/use-supabase-query";
+import { ReportRow, ReportService } from "@/services/report-service";
 
 const mapCallStatusToReportStatus = (status: string): ReportStatus => {
   switch (status) {
@@ -31,14 +20,13 @@ const mapCallStatusToReportStatus = (status: string): ReportStatus => {
     case 'finished':
       return status;
     default:
-      return 'disconnected'; // fallback if unknown
+      return 'disconnected';
   }
 };
 
 
 export default function Home() {
   const [isStatusActive, setIsStatusActive] = useState(false);
-  const [reports, setReports] = useState<ReportRow[]>([]);
   const [operatorId, setOperatorId] = useState<string | null>(null);
 
   // Fetch logged-in operator ID
@@ -51,39 +39,11 @@ export default function Home() {
     fetchOperator();
   }, []);
 
-  // Fetch reports for this operator
-  useEffect(() => {
-    if (!operatorId) return;
-
-    const fetchReports = async () => {
-      const { data, error } = await supabase
-        .from("satudua.reports")
-        .select(`
-          id,
-          created_at,
-          ai_summary,
-          call:call_id (
-            id,
-            started_at,
-            status,
-            caller:caller_id ( name ),
-            operator:operator_id ( id, name )
-          )
-        `)
-        .eq("call.operator_id", operatorId)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (error) {
-        console.error("Error fetching reports:", error);
-        return;
-      }
-      setReports(data as unknown as ReportRow[]);
-    };
-
-    fetchReports();
-  }, [operatorId]);
-
+  const { data: reports, loading, error } = useSupabaseQuery<ReportRow[]>(
+    () => ReportService.getOperatorReports(operatorId as string),
+    [operatorId]
+  );
+  
   return (
     <div className="flex h-full gap-4">
       <div className="w-2/3 flex flex-col gap-4 h-full">
@@ -99,7 +59,7 @@ export default function Home() {
         </div>
 
         <div className="w-full flex gap-4 px-4 pb-4">
-          <DataCard title="Total Laporan Hari Ini" value={reports.length.toString()} icon="carbon:report" />
+          <DataCard title="Total Laporan Hari Ini" value={reports?.length.toString() || "0"} icon="carbon:report" />
           <DataCard title="Total Antrian" value="127" icon="solar:incoming-call-bold" />
           <DataCard title="Waktu Respons" value="10 menit" icon="icon-park-solid:timer" theme="red" />
         </div>
@@ -108,20 +68,24 @@ export default function Home() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="flex flex-col gap-4 p-4">
-            {reports.length > 0 ? (
-            reports.map((report) => (
-              <ReportCard
-                key={report.id}
-                id={report.id}
-                timestamp={new Date(report.call.started_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-                reportType="Darurat"
-                eventType={report.ai_summary || "Tidak ada ringkasan"}
-                reportStatus={mapCallStatusToReportStatus(report.call.status)}
-              />
-            ))
-          ) : (
-            <Label type="defaultMuted" className="text-center w-full block">Belum ada laporan untuk Anda.</Label>
-          )}
+            {loading ? (
+              <Label type="defaultMuted" className="text-center w-full block">Memuat laporan...</Label>
+            ) : error ? (
+              <Label type="defaultMuted" className="text-center w-full block text-red-500">Error: Gagal memuat laporan.</Label>
+            ) : reports && reports.length > 0 ? (
+              reports.map((report) => (
+                <ReportCard
+                  key={report.id}
+                  id={report.id}
+                  timestamp={new Date(report.call.started_at).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                  reportType="Darurat"
+                  eventType={report.ai_summary || "Tidak ada ringkasan"}
+                  reportStatus={mapCallStatusToReportStatus(report.call.status)}
+                />
+              ))
+            ) : (
+              <Label type="defaultMuted" className="text-center w-full block">Belum ada laporan untuk Anda.</Label>
+            )}
           </div>
         </div>
       </div>
@@ -155,4 +119,3 @@ export default function Home() {
     </div>
   );
 }
-
