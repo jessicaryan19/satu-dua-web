@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { CallService } from "@/services/callService";
+import { useRouter } from 'next/navigation';
 
 // Type definitions
 interface CallerInfo {
@@ -26,6 +27,7 @@ interface CallWithCaller {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [isStatusActive, setIsStatusActive] = useState(false);
   const [incomingCall, setIncomingCall] = useState<CallWithCaller | null>(null);
   const [isLoadingCaller, setIsLoadingCaller] = useState(false);
@@ -68,6 +70,10 @@ export default function Home() {
     const started = callService.startCall();
     if (!started) {
       console.error("Failed to start call");
+    }
+
+    if (started) {
+      router.push("/report?callId=" + call.channelName);
     }
   }
 
