@@ -8,6 +8,7 @@ export default function Report() {
         <div className="flex w-full h-full gap-4">
             <div className="w-1/3 h-full flex flex-col ps-4 gap-4">
                 <OngoingCallCard/>
+                <OngoingCallCard type="dispatcher"/>
                 <AIContainerCard title="Analisa Kejadian" result=""/>
                 <AIContainerCard title="Rekomendasi" result={resultTempExample}/>
             </div>

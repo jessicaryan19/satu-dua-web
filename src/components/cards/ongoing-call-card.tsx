@@ -2,12 +2,18 @@ import { Icon } from "@iconify/react/dist/iconify.js";
 import { Label } from "../ui/label";
 import { Button } from "../ui/button";
 
-export default function OngoingCallCard() {
+type OngoingCallCardProps = {
+    type?: 'user' | 'dispatcher'
+}
+export default function OngoingCallCard({
+    type = 'user'
+}: OngoingCallCardProps) {
+
     return (
         <div className="w-full bg-destructive-accent flex p-6 rounded-2xl justify-between items-center">
-            <div className="flex gap-4">
-                <div className="w-fit h-fit bg-accent rounded-full">
-                    <Icon icon="gg:profile" className="text-5xl text-info" />
+            <div className="flex gap-4 items-center">
+                <div className="w-fit h-fit bg-accent rounded-full border-4 border-info">
+                    <Icon icon={type === 'user' ? "ri:user-line" : "mdi:support"} className="text-5xl text-info" />
                 </div>
                 <div className="flex flex-col gap-2">
                     <Label type="subtitle">Wilbert Chandra</Label>
