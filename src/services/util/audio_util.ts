@@ -9,11 +9,7 @@ export function downsampleTo16kHz(input: Float32Array, inputSampleRate: number) 
   while (offsetResult < result.length) {
     const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
     let accum = 0, count = 0;
-    for (let i = offsetBuffer; i < nextOffsetBuffer && i < input.length; i++) {
-      accum += input[i];
-      count++;
-    }
-    result[offsetResult] = accum / count;
+    result[offsetResult] = count > 0 ? accum / count : 0;
     offsetResult++;
     offsetBuffer = nextOffsetBuffer;
   }
