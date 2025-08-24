@@ -8,6 +8,7 @@ export type SelectOption = {
 export type SelectFieldProps = {
   selectOptions: SelectOption[],
   placeholder: string,
+  disabled?: boolean
   value?: string,
   onValueChange?: (value: string) => void,
 }
@@ -17,11 +18,12 @@ export function SelectField({
   placeholder,
   value,
   onValueChange,
+  disabled = false,
 }: SelectFieldProps) {
   return (
-    <Select value={value} onValueChange={onValueChange}>
-      <SelectTrigger className="w-full">
-        <SelectValue placeholder={placeholder} />
+    <Select value={value} onValueChange={onValueChange} >
+      <SelectTrigger className="w-full bg-white" disabled={disabled}>
+        <SelectValue placeholder={placeholder}/>
       </SelectTrigger>
       <SelectContent>
         {selectOptions.map((option) => (

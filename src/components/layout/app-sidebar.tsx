@@ -28,18 +28,29 @@ export const sidebarItems: SidebarItem[] = [
   },
   {
     title: "Laporan",
-    url: "/report",
+    url: "/laporan",
     icon: "mingcute:paper-fill",
   },
-  {
-    title: "Statistik",
-    url: "/statistic",
-    icon: "bi:bar-chart-fill",
-  },
+  // {
+  //   title: "Statistik",
+  //   url: "/statistic",
+  //   icon: "bi:bar-chart-fill",
+  // },
 ]
 
 export default function AppSidebar() {
   const pathname = usePathname();
+  
+  // Treat /report as an extension of home page
+  const getActiveUrl = (pathname: string) => {
+    if (pathname.startsWith('/report')) {
+      return '/';
+    }
+    const slicePath = pathname.split('/')
+    return '/' + slicePath[1];
+  };
+  
+  const activeUrl = getActiveUrl(pathname);
 
   return (
     <Sidebar className="rounded-2xl">
@@ -61,13 +72,13 @@ export default function AppSidebar() {
               "transition-transform duration-300 ease-in-out"
             )}
             style={{
-              transform: `translateY(${sidebarItems.findIndex(item => item.url === pathname) * 4}rem)`
+              transform: `translateY(${sidebarItems.findIndex(item => item.url === activeUrl) * 4}rem)`
             }}/>
           </div>
 
           {sidebarItems.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={item.url === pathname} className={cn("relative px-4 py-7 transition-colors duration-300 ease-in-out")}>
+              <SidebarMenuButton asChild isActive={item.url === activeUrl} className={cn("relative px-4 py-7 transition-colors duration-300 ease-in-out")}>
                 <Link href={item.url}>
                   <Icon icon={item.icon} />
                   <Label type="subtitle">{item.title}</Label>
