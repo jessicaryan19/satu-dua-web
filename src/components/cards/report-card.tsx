@@ -49,8 +49,8 @@ export default function ReportCard({
         <CardTitle>
           <Label type="subtitle">{id}</Label>
         </CardTitle>
-        <CardAction>
-          <Label className="w-1/2" type="defaultMuted">{timestamp}</Label>
+        <CardAction >
+          <Label className="w-full" type="defaultMuted">{timestamp}</Label>
         </CardAction>
       </CardHeader>
       <CardContent className="flex justify-between">
