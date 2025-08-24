@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import IncomingCallCard from "@/components/cards/incoming-call-card";
 import { StatusSwitch } from "@/components/switches/status-switch";
@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 
 import ReportList from "@/components/pages/dashboard/report-list";
 import DashboardDataCard from "@/components/pages/dashboard/dashboard-data-cards";
+
 // Type definitions
 interface CallerInfo {
   id: string;
@@ -24,6 +25,15 @@ interface CallWithCaller {
   channelName: string;
   status: string;
   caller?: CallerInfo;
+  created_at?: string;
+  answered_at?: string;
+}
+
+interface ChannelData {
+  id?: string;
+  channelName?: string;
+  call_id?: string;
+  status: 'waiting' | 'active' | 'ongoing' | 'completed';
   created_at?: string;
   answered_at?: string;
 }
@@ -42,7 +52,7 @@ export default function Home() {
   const getCallService = () => {
     return CallServiceSingleton.getInstance({
       onError: (err: string) => console.error("Call error:", err),
-      onWebSocketResponse: (uid: string, data: any) => console.log("WS:", uid, data),
+      onWebSocketResponse: (uid: string, data: unknown) => console.log("WS:", uid, data),
     });
   };
 
@@ -80,7 +90,7 @@ export default function Home() {
   }
 
   // Function to simulate or calculate response time for a call
-  function calculateCallResponseTime(call: any): number {
+  function calculateCallResponseTime(call: { created_at?: string; answered_at?: string }): number {
     // If the call has timestamp data, calculate actual response time
     if (call.created_at && call.answered_at) {
       return new Date(call.answered_at).getTime() - new Date(call.created_at).getTime();
