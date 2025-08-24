@@ -25,7 +25,6 @@ export default function ReportList() {
     [session],
     { enabled: !!session?.user.id }
   );
-
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="flex flex-col gap-4 p-4">

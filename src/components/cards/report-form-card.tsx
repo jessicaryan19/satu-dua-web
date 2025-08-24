@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,17 +11,21 @@ import { ReportService, ReportFormData } from "@/services/report-service";
 import { toast } from "sonner";
 
 interface ReportFormCardProps {
+  callId: string; // The Agora channelName/call ID
   aiAnalysis?: string;
   aiRecommendation?: string;
   operatorId: string; // This should be passed from your auth context/session
   onReportSaved?: () => void; // Callback when report is successfully saved
+  callEnded?: boolean; // Whether the call has ended
 }
 
 export default function ReportFormCard({
+  callId,
   aiAnalysis,
   aiRecommendation,
   operatorId,
-  onReportSaved
+  onReportSaved,
+  callEnded = false
 }: ReportFormCardProps) {
   const [formData, setFormData] = useState<ReportFormData>({
     callerPhone: "",
@@ -35,6 +39,44 @@ export default function ReportFormCard({
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingCallDetails, setLoadingCallDetails] = useState(false);
+
+  // Load call details and pre-populate form with existing data
+  useEffect(() => {
+    const loadCallDetails = async () => {
+      if (!callId) return;
+
+      setLoadingCallDetails(true);
+      try {
+        const result = await ReportService.getCallDetails(callId);
+        
+        if (result.success && result.data) {
+          const callData = result.data;
+          const caller = Array.isArray(callData.caller) ? callData.caller[0] : callData.caller;
+          
+          // Pre-populate form with call data if available
+          setFormData(prev => ({
+            ...prev,
+            callerPhone: caller?.phone_number || prev.callerPhone,
+            callerName: caller?.name || prev.callerName,
+            kecamatan: callData.location?.kecamatan || prev.kecamatan,
+            kelurahan: callData.location?.kelurahan || prev.kelurahan,
+            detailAddress: callData.location?.detail_address || caller?.address || prev.detailAddress
+          }));
+          
+          console.log("Pre-populated form with call data:", callData);
+        } else {
+          console.warn("Could not load call details:", result.error);
+        }
+      } catch (error) {
+        console.error("Error loading call details:", error);
+      } finally {
+        setLoadingCallDetails(false);
+      }
+    };
+
+    loadCallDetails();
+  }, [callId]);
 
   const reportTypeOptions: SelectOption[] = [
     { value: "darurat", label: "Darurat" },
@@ -86,6 +128,7 @@ export default function ReportFormCard({
     setIsLoading(true);
     try {
       const result = await ReportService.saveReport(
+        callId,
         formData,
         operatorId,
         aiAnalysis,
@@ -120,12 +163,25 @@ export default function ReportFormCard({
     <Card className="flex-1 flex flex-col gap-12">
       <CardHeader>
         <CardTitle>
-          <Label type="title">Laporan 25080600316</Label>
+          <Label type="title">Laporan {callId}</Label>
+          {callEnded && (
+            <div className="mt-2 text-sm text-red-600 font-medium">
+              ⚠️ Call ended - Report must be completed before leaving
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col">
-        <div className="flex flex-col gap-8 flex-1">
+        {loadingCallDetails ? (
+          <div className="flex items-center justify-center flex-1">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-gray-600">Loading call details...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-8 flex-1">
           <div>
             <Label type="subtitle">Data Pelapor</Label>
             <div className="grid grid-cols-2 gap-6 mt-4">
@@ -223,6 +279,7 @@ export default function ReportFormCard({
             />
           </div>
         </div>
+        )}
       </CardContent>
 
       <CardFooter>
@@ -239,9 +296,10 @@ export default function ReportFormCard({
             variant="default"
             onClick={handleSaveReport}
             disabled={isLoading}
+            className={callEnded ? "bg-green-600 hover:bg-green-700" : ""}
           >
             <Icon icon="teenyicons:send-up-outline" />
-            {isLoading ? "Menyimpan..." : "Simpan Laporan"}
+            {isLoading ? "Menyimpan..." : callEnded ? "Complete Report & Return to Dashboard" : "Simpan Laporan"}
           </Button>
         </div>
       </CardFooter>

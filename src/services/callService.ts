@@ -1,5 +1,6 @@
 import { getAgoraRTC } from "@/lib/agoraClient";
 import { downsampleTo16kHz, floatTo16BitPCM } from "@/services/util/audio_util";
+import { AIRecommendationService } from "@/services/ai-recommendation-service";
 
 export interface CallState {
   joined: boolean;
@@ -73,6 +74,30 @@ export class CallService {
     this.callbacks = { ...this.callbacks, ...newCallbacks };
   }
 
+  /**
+   * Handle AI analysis received from WebSocket and save to database
+   */
+  private async handleAIAnalysis(analysis: CallAnalysis): Promise<void> {
+    if (!this.state.channelName) {
+      console.warn('No channel name available for AI analysis');
+      return;
+    }
+
+    try {
+      const result = await AIRecommendationService.saveAIAnalysis(this.state.channelName, analysis);
+      
+      if (result.success) {
+        console.log(`AI analysis saved successfully for call ${this.state.channelName}`);
+      } else {
+        console.error(`Failed to save AI analysis: ${result.error}`);
+        this.callbacks.onError?.(`Failed to save AI analysis: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error handling AI analysis:', error);
+      this.callbacks.onError?.(`Error handling AI analysis: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
   public async joinChannel(channelNameInput?: string): Promise<{ success: boolean; channelName?: string; error?: string }> {
     try {
       let apiEndpoint, requestOptions, responseData;
@@ -122,10 +147,36 @@ export class CallService {
       const AgoraRTC = await getAgoraRTC();
       const newClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
+      // Add connection state monitoring
+      newClient.on("connection-state-change", (curState: string, revState: string) => {
+        console.log(`Agora connection state changed: ${revState} -> ${curState}`);
+        
+        if (curState === "DISCONNECTED" && this.state.joined) {
+          console.warn("Agora client disconnected unexpectedly");
+          this.callbacks.onError?.("Connection lost");
+          // Don't automatically leave, let the heartbeat handle it
+        } else if (curState === "RECONNECTING") {
+          console.log("Agora client attempting to reconnect...");
+        } else if (curState === "CONNECTED") {
+          console.log("Agora client connected successfully");
+        }
+      });
+
+      // Monitor user events for better debugging
+      newClient.on("user-left", (user: any, reason: string) => {
+        console.log(`User ${user.uid} left channel, reason: ${reason}`);
+      });
+
       // Join channel and publish mic (but no WebSocket yet)
       await newClient.join(appId, channel, token, null);
       const newMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
       await newClient.publish([newMicTrack]);
+
+      // Add logging for existing remote users
+      console.log(`Joined channel with ${newClient.remoteUsers.length} existing remote users`);
+      newClient.remoteUsers.forEach((user: any) => {
+        console.log(`Remote user ${user.uid} has audio: ${!!user.audioTrack}`);
+      });
 
       this.state.client = newClient;
       this.state.micTrack = newMicTrack;
@@ -154,35 +205,89 @@ export class CallService {
 
     const newCleanupFns: (() => void)[] = [];
 
-    // Set up WebSocket connections for existing remote users
-    this.state.client.remoteUsers.forEach((user: any) => {
+    // Handle existing remote users first - subscribe and play their audio
+    this.state.client.remoteUsers.forEach(async (user: any) => {
+      console.log(`Processing existing remote user ${user.uid}...`);
+      
+      // Check if user has audio track
       if (user.audioTrack) {
+        console.log(`Existing user ${user.uid} already has audio track, playing it`);
+        user.audioTrack.play();
+        
+        // Set up WebSocket for this user
         const cleanup = this.setupWebSocketForUser(user);
         if (cleanup) newCleanupFns.push(cleanup);
+      } else {
+        console.log(`Existing user ${user.uid} has no audio track, trying to subscribe...`);
+        try {
+          // Subscribe to their audio if they have published it
+          await this.state.client.subscribe(user, "audio");
+          if (user.audioTrack) {
+            console.log(`Successfully subscribed to ${user.uid} audio, now playing`);
+            user.audioTrack.play();
+            
+            // Set up WebSocket for this user
+            const cleanup = this.setupWebSocketForUser(user);
+            if (cleanup) newCleanupFns.push(cleanup);
+          }
+        } catch (error) {
+          console.log(`Could not subscribe to ${user.uid} audio:`, error);
+        }
       }
     });
 
     // Listen for new users joining after call starts
     const handleUserPublished = async (user: any, mediaType: string) => {
-      await this.state.client.subscribe(user, mediaType);
-      if (mediaType === "audio" && this.state.callStarted) {
-        // Play so you can hear them
-        user.audioTrack.play();
+      console.log(`User ${user.uid} published ${mediaType}`);
+      
+      try {
+        // Subscribe to the user's media
+        await this.state.client.subscribe(user, mediaType);
+        
+        if (mediaType === "audio") {
+          // Always play audio to hear the remote user
+          user.audioTrack.play();
+          console.log(`Playing audio for user ${user.uid}`);
+          
+          // Set up WebSocket only if call is started
+          if (this.state.callStarted) {
+            const cleanup = this.setupWebSocketForUser(user);
+            if (cleanup) {
+              this.state.wsCleanupFns.push(cleanup);
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to subscribe to user ${user.uid}:`, error);
+        this.callbacks.onError?.(`Failed to subscribe to user ${user.uid}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    };
 
-        // Set up WebSocket for this user
-        const cleanup = this.setupWebSocketForUser(user);
-        if (cleanup) {
-          this.state.wsCleanupFns.push(cleanup);
+    // Also handle user leaving
+    const handleUserUnpublished = (user: any, mediaType: string) => {
+      console.log(`User ${user.uid} unpublished ${mediaType}`);
+      if (mediaType === "audio") {
+        // Clean up WebSocket connection for this user
+        const ws = this.state.wsConnections[user.uid];
+        if (ws) {
+          ws.close();
+          delete this.state.wsConnections[user.uid];
         }
       }
     };
 
     this.state.client.on("user-published", handleUserPublished);
-    newCleanupFns.push(() => this.state.client.off("user-published", handleUserPublished));
+    this.state.client.on("user-unpublished", handleUserUnpublished);
+    
+    newCleanupFns.push(() => {
+      this.state.client.off("user-published", handleUserPublished);
+      this.state.client.off("user-unpublished", handleUserUnpublished);
+    });
 
     this.state.wsCleanupFns = newCleanupFns;
     this.state.callStarted = true;
 
+    console.log("Call started, listening for remote users");
     return true;
   }
 
@@ -228,6 +333,35 @@ export class CallService {
     this.state.joined = false;
     this.state.channelName = undefined;
     this.state.isChannelOwner = false;
+  }
+
+  public async reconnectToChannel(): Promise<{ success: boolean; error?: string }> {
+    if (!this.state.channelName) {
+      return { success: false, error: "No channel to reconnect to" };
+    }
+
+    const channelName = this.state.channelName;
+    console.log(`Attempting to reconnect to channel: ${channelName}`);
+
+    try {
+      // Clean up current state
+      this.cleanup();
+      
+      // Try to rejoin the same channel
+      const result = await this.joinChannel(channelName);
+      
+      if (result.success) {
+        console.log("Successfully reconnected to channel");
+        return { success: true };
+      } else {
+        console.error("Failed to reconnect:", result.error);
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      const errorMessage = `Reconnection failed: ${error instanceof Error ? error.message : String(error)}`;
+      console.error(errorMessage);
+      return { success: false, error: errorMessage };
+    }
   }
 
   public async listChannels(): Promise<{ success: boolean; channels?: any[]; error?: string }> {
@@ -345,6 +479,20 @@ export class CallService {
     return Object.keys(this.state.wsConnections);
   }
 
+  /**
+   * Get AI recommendation for the current call
+   */
+  public async getAIRecommendation(): Promise<{ success: boolean; data?: any; error?: string }> {
+    if (!this.state.channelName) {
+      return {
+        success: false,
+        error: 'No active call to get AI recommendation for'
+      };
+    }
+
+    return await AIRecommendationService.getAIRecommendation(this.state.channelName);
+  }
+
   public async muteAudio(mute: boolean = true): Promise<boolean> {
     if (!this.state.micTrack) {
       this.callbacks.onError?.("Cannot mute: no microphone track available");
@@ -434,16 +582,26 @@ export class CallService {
     }
 
     this.state.heartbeatActive = true;
+    let failedHeartbeats = 0;
+    const maxFailedHeartbeats = 3; // Allow 3 failures before giving up
 
     // Check heartbeat every 30 seconds
     this.heartbeatInterval = setInterval(async () => {
       const isAlive = await this.checkChannelHeartbeat();
       this.callbacks.onHeartbeatStatus?.(isAlive);
 
-      if (!isAlive && this.state.joined) {
-        console.warn("Channel appears to be dead, leaving channel");
-        this.callbacks.onError?.("Channel is no longer active");
-        this.leaveChannel();
+      if (!isAlive) {
+        failedHeartbeats++;
+        console.warn(`Heartbeat failed (${failedHeartbeats}/${maxFailedHeartbeats})`);
+        
+        if (failedHeartbeats >= maxFailedHeartbeats && this.state.joined) {
+          console.warn("Channel appears to be dead after multiple failures, leaving channel");
+          this.callbacks.onError?.("Channel is no longer active");
+          this.callbacks.onChannelClosed?.();
+        }
+      } else {
+        // Reset failed count on successful heartbeat
+        failedHeartbeats = 0;
       }
     }, 30000);
 
@@ -472,6 +630,8 @@ export class CallService {
       const ws = new WebSocket(`${wsUrl}/${user.uid}`);
       ws.binaryType = "arraybuffer";
 
+      console.log(`Opening WebSocket for user ${user.uid} at ${wsUrl}/${user.uid}`);
+      
       // Handle WebSocket messages
       ws.onopen = () => {
         console.log(`WebSocket opened for user ${user.uid}`);
@@ -486,13 +646,26 @@ export class CallService {
             JSON.parse(event.data) :
             event.data;
 
-          // Check if this is an analysis response
-          if (data.call_id && data.analysis && data.current_status) {
+          console.log('Received WebSocket data:', data); // Add debug logging
+
+          // Check if this is an analysis response - be more flexible with the check
+          if (data && typeof data === 'object' && (
+            (data.call_id && data.analysis && data.current_status) || // Original format
+            (data.analysis && data.analysis.reasoning) || // Alternative format
+            (data.type === 'analysis') // Another possible format
+          )) {
+            console.log('Detected analysis response, processing...');
+            
+            // Save to database automatically
+            this.handleAIAnalysis(data as CallAnalysis);
+            
+            // Also notify callback
             this.callbacks.onAnalysisReceived?.(data as CallAnalysis);
           }
 
           this.callbacks.onWebSocketResponse?.(user.uid, { type: 'message', data });
         } catch (error) {
+          console.log('Failed to parse WebSocket message as JSON, treating as binary:', error);
           // If not JSON, treat as binary or raw data
           this.callbacks.onWebSocketResponse?.(user.uid, {
             type: 'binary',
@@ -521,40 +694,93 @@ export class CallService {
       // Store the WebSocket connection
       this.state.wsConnections[user.uid] = ws;
 
-      // Create audio context at 16kHz
-      const audioCtx = new AudioContext({ sampleRate: 16000 });
-      const remoteStreamTrack = user.audioTrack.getMediaStreamTrack();
-      const srcNode = audioCtx.createMediaStreamSource(
-        new MediaStream([remoteStreamTrack])
-      );
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      // Try to set up audio processing with better error handling
+      try {
+        // Create audio context with default sample rate first
+        const audioCtx = new AudioContext(); // Use default sample rate
+        const remoteStreamTrack = user.audioTrack.getMediaStreamTrack();
+        
+        console.log(`Audio context sample rate: ${audioCtx.sampleRate}Hz for user ${user.uid}`);
+        
+        const srcNode = audioCtx.createMediaStreamSource(
+          new MediaStream([remoteStreamTrack])
+        );
+        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
 
-      srcNode.connect(processor);
-      processor.connect(audioCtx.destination);
+        srcNode.connect(processor);
+        processor.connect(audioCtx.destination);
 
-      processor.onaudioprocess = (e) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          const inputData = e.inputBuffer.getChannelData(0);
-          const downsampled = downsampleTo16kHz(inputData, audioCtx.sampleRate);
-          const int16 = floatTo16BitPCM(downsampled);
-          ws.send(int16);
-        }
-      };
+        processor.onaudioprocess = (e) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            try {
+              const inputData = e.inputBuffer.getChannelData(0);
+              
+              // Handle sample rate conversion properly
+              let processedData: Float32Array;
+              if (audioCtx.sampleRate === 16000) {
+                // Already at 16kHz, no conversion needed
+                processedData = inputData;
+              } else {
+                // Convert to 16kHz
+                processedData = downsampleTo16kHz(inputData, audioCtx.sampleRate);
+              }
+              
+              const int16 = floatTo16BitPCM(processedData);
+              ws.send(int16);
+            } catch (audioError) {
+              console.warn(`Audio processing error for user ${user.uid}:`, audioError);
+            }
+          }
+        };
 
-      // Return cleanup function
-      return () => {
-        ws.close();
-        processor.disconnect();
-        srcNode.disconnect();
-        audioCtx.close();
+        // Return cleanup function
+        return () => {
+          try {
+            ws.close();
+            processor.disconnect();
+            srcNode.disconnect();
+            audioCtx.close();
+          } catch (cleanupError) {
+            console.warn(`Cleanup error for user ${user.uid}:`, cleanupError);
+          }
 
-        // Remove from connections tracking
-        delete this.state.wsConnections[user.uid];
-      };
+          // Remove from connections tracking
+          delete this.state.wsConnections[user.uid];
+        };
+
+      } catch (audioSetupError) {
+        console.error(`Failed to setup audio processing for user ${user.uid}:`, audioSetupError);
+        
+        // If audio setup fails, still return a cleanup function for the WebSocket
+        return () => {
+          ws.close();
+          delete this.state.wsConnections[user.uid];
+        };
+      }
+
     } catch (error: unknown) {
       console.error("Failed to setup WebSocket for user:", user.uid, error);
       this.callbacks.onError?.(`Failed to setup WebSocket for user ${user.uid}: ${error instanceof Error ? error.message : String(error)}`);
       return null;
     }
+  }
+
+  // Add this method for testing WebSocket connections
+  public testWebSocketConnection(): void {
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080/ws/v1/call/";
+    const testWs = new WebSocket(`${wsUrl}/test`);
+    
+    testWs.onopen = () => {
+      console.log("Test WebSocket connection successful");
+      testWs.close();
+    };
+    
+    testWs.onerror = (error) => {
+      console.error("Test WebSocket connection failed:", error);
+    };
+
+    testWs.onclose = (event) => {
+      console.log("Test WebSocket closed:", event.code, event.reason);
+    };
   }
 }

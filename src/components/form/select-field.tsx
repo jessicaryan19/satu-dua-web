@@ -4,17 +4,22 @@ export type SelectOption = {
   value: string,
   label: string,
 }
-type SelectFieldProps = {
+
+export type SelectFieldProps = {
   selectOptions: SelectOption[],
   placeholder: string,
+  value?: string,
+  onValueChange?: (value: string) => void,
 }
 
 export function SelectField({
   selectOptions,
   placeholder,
+  value,
+  onValueChange,
 }: SelectFieldProps) {
   return (
-    <Select>
+    <Select value={value} onValueChange={onValueChange}>
       <SelectTrigger className="w-full">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

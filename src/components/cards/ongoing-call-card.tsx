@@ -19,6 +19,7 @@ interface OngoingCallCardProps {
   onEndCall?: () => void;
   isPaused?: boolean; // External pause state
   isMuted?: boolean; // External mute state
+  callEnded?: boolean; // Whether the call has ended
 }
 
 export default function OngoingCallCard({
@@ -28,7 +29,8 @@ export default function OngoingCallCard({
   onMute,
   onEndCall,
   isPaused = false,
-  isMuted = false
+  isMuted = false,
+  callEnded = false
 }: OngoingCallCardProps) {
   const [callDuration, setCallDuration] = useState("00:00:00");
   const [startTime] = useState(Date.now());
@@ -66,7 +68,9 @@ export default function OngoingCallCard({
   const displayPhone = caller?.phone_number || "No Phone Number";
 
   return (
-    <div className="w-full bg-destructive-accent flex p-6 rounded-2xl justify-between items-center">
+    <div className={`w-full flex p-6 rounded-2xl justify-between items-center ${
+      callEnded ? 'bg-gray-200 border-2 border-gray-400' : 'bg-destructive-accent'
+    }`}>
       <div className="flex gap-4">
         <div className="w-fit h-fit bg-accent rounded-full">
           <Icon icon="gg:profile" className="text-5xl text-info" />
@@ -74,6 +78,9 @@ export default function OngoingCallCard({
         <div className="flex flex-col gap-2">
           <Label type="subtitle">{displayName}</Label>
           <Label>{displayPhone}</Label>
+          {callEnded && (
+            <Label className="text-red-600 text-sm font-medium">Call Ended</Label>
+          )}
         </div>
       </div>
       <div className="flex flex-col justify-center items-center gap-4">
@@ -84,6 +91,7 @@ export default function OngoingCallCard({
             className="w-10 h-10 rounded-full"
             onClick={handlePause}
             title={isPaused ? "Resume" : "Pause"}
+            disabled={callEnded}
           >
             <Icon icon={isPaused ? "material-symbols:play-arrow" : "material-symbols:pause"} />
           </Button>
@@ -92,6 +100,7 @@ export default function OngoingCallCard({
             className="w-10 h-10 rounded-full"
             onClick={handleMute}
             title={isMuted ? "Unmute" : "Mute"}
+            disabled={callEnded}
           >
             <Icon icon={isMuted ? "vaadin:volume-off" : "vaadin:mute"} />
           </Button>
@@ -99,9 +108,10 @@ export default function OngoingCallCard({
             variant="secondary"
             className="w-10 h-10 rounded-full"
             onClick={handleEndCall}
-            title="End Call"
+            title={callEnded ? "Call Ended" : "End Call"}
+            disabled={callEnded}
           >
-            <Icon icon="solar:end-call-bold" />
+            <Icon icon={callEnded ? "material-symbols:check-circle" : "solar:end-call-bold"} />
           </Button>
         </div>
       </div>

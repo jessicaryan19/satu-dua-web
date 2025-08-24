@@ -7,6 +7,7 @@ import { CallAnalysis } from "@/services/callService";
 import CallServiceSingleton from "@/lib/callServiceSingleton";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { Icon } from "@iconify/react/dist/iconify.js";
 
 export default function Report() {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function Report() {
   const [callId, setCallId] = useState<string | null>(null);
   const [reportSaved, setReportSaved] = useState(false);
   const [loadingLatestCall, setLoadingLatestCall] = useState(false);
+  const [callEnded, setCallEnded] = useState(false);
+  const [attemptedNavigation, setAttemptedNavigation] = useState(false);
 
   // Get latest answered call if no callId provided
   useEffect(() => {
@@ -87,13 +90,16 @@ export default function Report() {
     getLatestCall();
   }, [callIdParam, operatorId, router]);
 
-  // Redirect if report has been saved
+  // Redirect only when both call is ended AND report is saved
   useEffect(() => {
-    if (reportSaved) {
-      console.log("Report saved, redirecting to dashboard");
+    if (callEnded && reportSaved) {
+      console.log("Call ended and report saved, redirecting to dashboard");
       router.replace('/');
+    } else if (attemptedNavigation && callEnded && !reportSaved) {
+      // User tried to navigate away but hasn't saved report yet
+      console.log("Blocking navigation - report must be completed first");
     }
-  }, [reportSaved, router]);
+  }, [callEnded, reportSaved, attemptedNavigation, router]);
 
   // AI analysis and recommendation states
   const [aiAnalysis, setAiAnalysis] = useState<string>("");
@@ -104,6 +110,7 @@ export default function Report() {
   const [caller, setCaller] = useState<any>(null);
   const [fullAnalysis, setFullAnalysis] = useState<CallAnalysis | null>(null);
   const [confidenceTrend, setConfidenceTrend] = useState<number[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<string>("connecting");
 
   // Get the singleton CallService instance with report-specific callbacks
   const getCallService = () => {
@@ -114,10 +121,18 @@ export default function Report() {
     return CallServiceSingleton.getInstance({
       onError: (err: string) => {
         console.error("Call error:", err);
-        setCallActive(false);
-        // If there's a critical error, redirect back to dashboard
+        
+        // Only redirect for critical errors, not connection issues
         if (err.includes("Failed to join channel") || err.includes("Invalid")) {
+          setCallActive(false);
           router.replace('/');
+        } else if (err.includes("Connection lost") || err.includes("Channel is no longer active")) {
+          // For connection issues, just log and let user decide
+          console.warn("Connection issue detected:", err);
+          // Don't automatically redirect - user might want to try reconnecting
+        } else {
+          // For other errors, mark call as inactive but stay on page
+          setCallActive(false);
         }
       },
       onWebSocketResponse: (uid: string, data: any) => {
@@ -136,9 +151,14 @@ export default function Report() {
       onAnalysisReceived: (analysis: CallAnalysis) => {
         console.log("Analysis received:", analysis);
         setFullAnalysis(analysis);
-        setAiAnalysis(analysis.analysis.reasoning);
-        setAiRecommendation(analysis.analysis.suggestion);
-        setConfidenceTrend(analysis.confidence_trend);
+        
+        // Make sure we're extracting the right fields - be more defensive
+        const reasoning = analysis.analysis?.reasoning || '';
+        const suggestion = analysis.analysis?.suggestion || '';
+        
+        setAiAnalysis(reasoning);
+        setAiRecommendation(suggestion);
+        setConfidenceTrend(analysis.confidence_trend || []);
 
         // If the call is completed, maybe auto-redirect or show completion status
         if (analysis.current_status === "completed") {
@@ -147,7 +167,21 @@ export default function Report() {
       },
       onChannelClosed: () => {
         setCallActive(false);
-        router.push('/');
+        setCallEnded(true);
+        setConnectionStatus("disconnected");
+        console.log("Channel closed - call ended, report required before navigation");
+        // Don't immediately redirect - wait for report to be saved
+      },
+      onConnectionStatusChange: (userId: string, status: 'connecting' | 'open' | 'closing' | 'closed') => {
+        console.log(`Connection status for ${userId}: ${status}`);
+        // Update overall connection status based on any active connections
+        if (status === 'open') {
+          setConnectionStatus("connected");
+        } else if (status === 'closed' || status === 'closing') {
+          setConnectionStatus("disconnected");
+        } else if (status === 'connecting') {
+          setConnectionStatus("connecting");
+        }
       }
     });
   };
@@ -166,30 +200,54 @@ export default function Report() {
       // If we have a callId and either need to join or we're already in the right channel
       if (!existingState.joined || existingState.channelName !== callId) {
         // Need to join the channel
+        setConnectionStatus("connecting");
         callService.joinChannel(callId).then((result: any) => {
           if (result.success && !callService.getState().callStarted) {
+            setConnectionStatus("connected");
             callService.startCall();
           } else if (!result.success) {
             console.error("Failed to join call with callId:", callId);
+            setConnectionStatus("disconnected");
             router.replace('/');
           }
         });
       } else if (existingState.joined && existingState.channelName === callId && !existingState.callStarted) {
         // Already joined but call not started
+        setConnectionStatus("connected");
         callService.startCall();
       }
 
       // Fetch caller info
       fetchCallerInfo(callId);
 
-      // Cleanup function - warn user about leaving active call
+      // Cleanup function - warn user about leaving active call or unsaved report
       const beforeUnload = (event: BeforeUnloadEvent) => {
         const callState = callService.getState();
-        if (callState.joined && callState.callStarted) {
+        if ((callState.joined && callState.callStarted) || (callEnded && !reportSaved)) {
           event.preventDefault();
-          event.returnValue = "You have an active call. Are you sure you want to leave?";
+          const message = callEnded && !reportSaved 
+            ? "You must complete the report before leaving this page." 
+            : "You have an active call. Are you sure you want to leave?";
+          event.returnValue = message;
           return event.returnValue;
         }
+      };
+
+      // Block navigation attempts if call ended but report not saved
+      const handleRouteChange = () => {
+        if (callEnded && !reportSaved) {
+          setAttemptedNavigation(true);
+          const confirmed = window.confirm(
+            "You must complete and save the report before leaving this page. Do you want to stay and complete the report?"
+          );
+          if (!confirmed) {
+            // User insists on leaving - allow but warn
+            console.warn("User left without completing report");
+            return true;
+          }
+          return false; // Block navigation
+        }
+        return true; // Allow navigation
       };
 
       window.addEventListener('beforeunload', beforeUnload);
@@ -201,7 +259,7 @@ export default function Report() {
       console.error("Error initializing call service:", error);
       router.replace('/');
     }
-  }, [callId, router]);
+  }, [callId, callEnded, reportSaved, router]);
 
   // Function to fetch caller information
   async function fetchCallerInfo(callId: string) {
@@ -326,11 +384,72 @@ export default function Report() {
       CallServiceSingleton.resetInstance();
 
       setCallActive(false);
-      router.push('/');
+      setCallEnded(true);
+      
+      // Don't immediately navigate - let the user complete the report first
+      console.log("Call ended. Operator must complete report before leaving.");
     } catch (error) {
       console.error("Error ending call:", error);
-      // Still navigate back to dashboard even if there's an error
-      router.replace('/');
+      setCallEnded(true);
+      // Don't navigate immediately even on error - report still required
+    }
+  };
+
+  // Test function to simulate receiving AI analysis (for debugging)
+  const testAnalysis = () => {
+    const mockAnalysis: CallAnalysis = {
+      call_id: callId || 'test',
+      analysis: {
+        is_prank_call: false,
+        confidence_score: 0.85,
+        trust_score: 0.90,
+        location: 'Jakarta',
+        reasoning: 'This appears to be a genuine emergency call based on the caller\'s tone and urgency.',
+        key_indicators: ['urgent tone', 'clear speech', 'specific location'],
+        suggestion: 'Dispatch emergency services immediately to the reported location.',
+        escalation_required: true
+      },
+      confidence_trend: [0.7, 0.8, 0.85],
+      current_status: 'analyzing',
+      suggested_action: 'dispatch',
+      update_timestamp: new Date().toISOString()
+    };
+    
+    setFullAnalysis(mockAnalysis);
+    setAiAnalysis(mockAnalysis.analysis.reasoning);
+    setAiRecommendation(mockAnalysis.analysis.suggestion);
+    setConfidenceTrend(mockAnalysis.confidence_trend);
+  };
+
+  // Function to handle reconnection
+  const handleReconnect = async () => {
+    if (!callId || callId.trim() === '') {
+      console.warn("Cannot reconnect: no valid callId");
+      return;
+    }
+
+    try {
+      const callService = getCallService();
+      console.log("Attempting to reconnect to channel...");
+      
+      const result = await callService.reconnectToChannel();
+      
+      if (result.success) {
+        console.log("Reconnection successful");
+        setCallActive(true);
+        
+        // Restart the call if it was active before
+        const success = callService.startCall();
+        if (success) {
+          console.log("Call restarted successfully");
+        }
+      } else {
+        console.error("Reconnection failed:", result.error);
+        alert("Failed to reconnect: " + result.error);
+      }
+    } catch (error) {
+      console.error("Error during reconnection:", error);
+      alert("Reconnection error: " + error);
     }
   };
 
@@ -347,6 +466,7 @@ export default function Report() {
           onEndCall={handleEndCall}
           isPaused={isPaused}
           isMuted={isMuted}
+          callEnded={callEnded}
         />
 
         {/* Debug info for development */}
@@ -354,6 +474,11 @@ export default function Report() {
           <div className="bg-gray-100 p-2 rounded text-xs">
             <div><strong>Call ID:</strong> {callId}</div>
             <div><strong>Call ID Valid:</strong> {callId && callId.trim() !== '' ? 'Yes' : 'No'}</div>
+            <div><strong>Call Active:</strong> {callActive ? 'Yes' : 'No'}</div>
+            <div><strong>Call Ended:</strong> {callEnded ? 'Yes' : 'No'}</div>
+            <div><strong>Report Saved:</strong> {reportSaved ? 'Yes' : 'No'}</div>
+            <div><strong>Navigation Blocked:</strong> {(callEnded && !reportSaved) ? 'Yes' : 'No'}</div>
+            <div><strong>Connection Status:</strong> <span className={connectionStatus === 'connected' ? 'text-green-600' : 'text-red-600'}>{connectionStatus}</span></div>
             <div><strong>Full Analysis Available:</strong> {fullAnalysis ? 'Yes' : 'No'}</div>
             {fullAnalysis && (
               <>
@@ -364,6 +489,44 @@ export default function Report() {
                 <div><strong>Escalation Required:</strong> {fullAnalysis.analysis.escalation_required ? 'Yes' : 'No'}</div>
               </>
             )}
+            <button 
+              onClick={testAnalysis}
+              className="mt-2 bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600"
+            >
+              Test AI Analysis
+            </button>
+            <button 
+              onClick={handleReconnect}
+              className="mt-2 ml-2 bg-green-500 text-white px-2 py-1 rounded text-xs hover:bg-green-600"
+            >
+              Reconnect
+            </button>
+          </div>
+        )}
+
+        {/* Call Status Messages */}
+        {!callEnded && callActive && (
+          <div className="bg-blue-100 border-l-4 border-blue-500 p-4 rounded text-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon icon="material-symbols:info" className="text-blue-600" />
+              <h4 className="font-semibold text-blue-800">Call in Progress</h4>
+            </div>
+            <p className="text-blue-700">
+              You can start filling out the report while the call is active. End the call when ready to finalize the report.
+            </p>
+          </div>
+        )}
+
+        {/* Call Ended Notice */}
+        {callEnded && !reportSaved && (
+          <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded text-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Icon icon="material-symbols:warning" className="text-yellow-600" />
+              <h4 className="font-semibold text-yellow-800">Call Ended - Report Required</h4>
+            </div>
+            <p className="text-yellow-700">
+              The call has ended. You must complete and save the report below before you can return to the dashboard.
+            </p>
           </div>
         )}
 
@@ -378,10 +541,12 @@ export default function Report() {
       </div>
       <div className="w-2/3 h-full flex flex-col gap-6">
         <ReportFormCard
+          callId={callId || ""}
           aiAnalysis={aiAnalysis}
           aiRecommendation={aiRecommendation || resultTempExample}
           operatorId={operatorId ?? "No Operator"}
           onReportSaved={() => setReportSaved(true)}
+          callEnded={callEnded}
         />
       </div>
     </div>
