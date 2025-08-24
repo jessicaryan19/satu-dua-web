@@ -173,8 +173,7 @@ export const ReportService = {
         },
         system_info: {
           caller_name: formData.callerName,
-          caller_phone: formData.callerPhone,
-          caller_address: user.address,
+          caller_address: formData.detailAddress,
           report_id: reportId,
           timestamp: new Date().toISOString()
         },
