@@ -20,8 +20,7 @@ interface ReportFormCardProps {
     timestamp: string,
     reportType: string,
     eventType: string,
-    reportStatus: string,
-    compact: string,
+    reportStatus?: string,
     incidentDetails: string,
     aiSummary: string
 }

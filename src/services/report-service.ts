@@ -25,7 +25,10 @@ export type Report = {
       kelurahan?: string;
       detail_address?: string;
     };
-    caller: { name: string };
+    caller: {
+      name: string
+      phone_number: string
+    };
     operator: { id: string; name: string };
   };
   operator_report: OperatorReportJSON & {
@@ -343,10 +346,9 @@ export const ReportService = {
   },
 
   getReportDetails: async (reportId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('reports')
-        .select(`
+    const { data, error } = await supabase
+      .from('reports')
+      .select(`
           id,
           created_at,
           operator_report,
@@ -376,17 +378,8 @@ export const ReportService = {
             )
           )
         `)
-        .eq('id', reportId)
-        .single();
-
-      if (error) throw error;
-      return { data: data as unknown as Report, error: error};
-    } catch (error) {
-      console.error('Error fetching report details:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Report not found'
-      };
-    }
+      .eq('id', reportId)
+      .single();
+    return { data: data as unknown as Report, error: error }
   }
 };
