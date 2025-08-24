@@ -1,7 +1,7 @@
 // app/api/calls/[callId]/caller/route.ts - Alternative approach
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseClient } from '@/lib/supabase';
 
 
 export async function GET(
@@ -9,6 +9,15 @@ export async function GET(
   { params }: { params: Promise<{ callId: string }> }
 ) {
   try {
+    const supabase = getSupabaseClient();
+    
+    if (!supabase) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 500 }
+      );
+    }
+
     const { callId } = await params; // This is the channelName
 
     // First, get the call to find the caller_id from satudua.calls
