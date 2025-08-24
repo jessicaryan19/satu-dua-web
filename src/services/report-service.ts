@@ -380,7 +380,7 @@ export const ReportService = {
         .single();
 
       if (error) throw error;
-      return { success: true, data };
+      return { data: data as unknown as Report, error: error};
     } catch (error) {
       console.error('Error fetching report details:', error);
       return {

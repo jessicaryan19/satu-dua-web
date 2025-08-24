@@ -1,3 +1,5 @@
+"use client";
+
 import ReportCard, { ReportStatus } from "@/components/cards/report-card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
@@ -75,13 +77,13 @@ export default function ReportList({
   const formatTimestamp = (dateString: string, isCompact: boolean) => {
     const date = new Date(dateString);
     
-    if (isCompact) {
+    // if (isCompact) {
       // For compact mode: just time (e.g., "13:26")
-      return date.toLocaleTimeString("id-ID", { 
-        hour: "2-digit", 
-        minute: "2-digit" 
-      });
-    } else {
+    //   return date.toLocaleTimeString("id-ID", { 
+    //     hour: "2-digit", 
+    //     minute: "2-digit" 
+    //   });
+    // } else {
       // For full mode: full datetime (e.g., "22 Agustus 2025, 13:26")
       return date.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -90,11 +92,11 @@ export default function ReportList({
         hour: "2-digit",
         minute: "2-digit"
       });
-    }
+    // }
   };
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="flex flex-col gap-4 p-4">
+      <div className="flex flex-col gap-6 p-4">
         {loading ? (
           <Label type="defaultMuted" className="text-center w-full block">Memuat laporan...</Label>
         ) : error ? (

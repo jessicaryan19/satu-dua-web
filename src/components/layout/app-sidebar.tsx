@@ -31,11 +31,11 @@ export const sidebarItems: SidebarItem[] = [
     url: "/laporan",
     icon: "mingcute:paper-fill",
   },
-  {
-    title: "Statistik",
-    url: "/statistic",
-    icon: "bi:bar-chart-fill",
-  },
+  // {
+  //   title: "Statistik",
+  //   url: "/statistic",
+  //   icon: "bi:bar-chart-fill",
+  // },
 ]
 
 export default function AppSidebar() {
@@ -46,7 +46,8 @@ export default function AppSidebar() {
     if (pathname.startsWith('/report')) {
       return '/';
     }
-    return pathname;
+    const slicePath = pathname.split('/')
+    return '/' + slicePath[1];
   };
   
   const activeUrl = getActiveUrl(pathname);

@@ -70,9 +70,9 @@ export default function LaporanPage() {
   };
 
   return (
-    <div className="flex w-full h-full flex-col">
+    <div className="flex w-full h-full flex-col gap-6">
       {/* Filter Section */}
-      <div className="p-3 px-10">
+      <div className="ps-4">
         <div className="flex gap-4 items-center">
           {/* Tanggal */}
           <div className="flex-1">
@@ -116,27 +116,21 @@ export default function LaporanPage() {
           </div>
 
           {/* Search Button */}
-            <div className="flex-shrink-0 flex gap-2">
-              <Button variant="outline" onClick={handleClearFilters} className="px-6">
-                <Icon icon="material-symbols:clear-all" className="w-4 h-4 mr-2" />
-                Reset
-              </Button>
-              <Button onClick={handleSearch} className="px-8 py-2">
-                <Icon icon="material-symbols:search" className="w-4 h-4 mr-2" />
-                Cari
-              </Button>
-            </div>
+          <div className="flex-shrink-0 flex gap-2">
+            <Button variant="outline" onClick={handleClearFilters} className="px-6">
+              <Icon icon="material-symbols:clear-all" className="w-4 h-4 mr-2" />
+              Reset
+            </Button>
+            <Button onClick={handleSearch} className="px-8 py-2">
+              <Icon icon="material-symbols:search" className="w-4 h-4 mr-2" />
+              Cari
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Report List */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto">
-          <div className="p-6">
-            <ReportList filters={appliedFilters} />
-          </div>
-        </div>
-      </div>
+      <ReportList filters={appliedFilters} />
     </div>
   );
 }
