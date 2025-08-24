@@ -35,8 +35,12 @@ export default function OngoingCallCard({
   const [callDuration, setCallDuration] = useState("00:00:00");
   const [startTime] = useState(Date.now());
 
-  // Update call duration every second
+  // Update call duration every second, but stop when call ends
   useEffect(() => {
+    if (callEnded) {
+      return; // Don't start timer if call has already ended
+    }
+
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       const hours = Math.floor(elapsed / 3600);
@@ -49,7 +53,7 @@ export default function OngoingCallCard({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startTime]);
+  }, [startTime, callEnded]);
 
   const handlePause = () => {
     onPause?.();

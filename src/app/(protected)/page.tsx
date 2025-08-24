@@ -47,6 +47,11 @@ export default function Home() {
   const [averageResponseTime, setAverageResponseTime] = useState<string>("0 menit");
   const [responseTimeData, setResponseTimeData] = useState<number[]>([]);
   const [totalCallsToday, setTotalCallsToday] = useState(0);
+  const [currentCallHeartbeat, setCurrentCallHeartbeat] = useState<boolean | null>(null);
+  const [callFirstDetectedAt, setCallFirstDetectedAt] = useState<number | null>(null);
+
+  // Heartbeat grace period (30 seconds for new calls to establish)
+  const HEARTBEAT_GRACE_PERIOD = 30000; // 30 seconds
 
   // Get the singleton CallService instance
   const getCallService = () => {
@@ -67,6 +72,30 @@ export default function Home() {
     } catch (error) {
       console.error('Error fetching caller info:', error);
       return null;
+    }
+  }
+
+  // Function to check if current call is still alive
+  async function checkCurrentCallHeartbeat(callId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_AGORA_CREDENTIALS_API}/join-call` || "http://localhost:3000/api/heartbeat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-operator-key": "supersecret_operator_key"
+        },
+        body: JSON.stringify({ channelName: callId })
+      });
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const responseData = await response.json();
+      return responseData.alive === true || responseData.status === 'active';
+    } catch (error) {
+      console.error('Heartbeat check failed:', error);
+      return false;
     }
   }
 
@@ -168,6 +197,106 @@ export default function Home() {
   // Memoize the polling function to prevent unnecessary re-renders
   const pollCalls = useCallback(async () => {
     const callService = getCallService();
+
+    // Step 1: If we have a current incoming call, check if we should run heartbeat
+    if (incomingCall && incomingCall.channelName && callFirstDetectedAt) {
+      const timeSinceDetected = Date.now() - callFirstDetectedAt;
+      
+      // Only check heartbeat if enough time has passed (grace period)
+      if (timeSinceDetected >= HEARTBEAT_GRACE_PERIOD) {
+        console.log("Checking heartbeat for current call:", incomingCall.channelName, `(${Math.round(timeSinceDetected/1000)}s since detected)`);
+        const isCallAlive = await checkCurrentCallHeartbeat(incomingCall.channelName);
+        setCurrentCallHeartbeat(isCallAlive);
+
+        if (isCallAlive) {
+          console.log("Current call is still alive, keeping it and updating stats only");
+          
+          // Update only the statistics, don't change the current call
+          const { success, channels } = await callService.listChannels();
+          if (success && channels) {
+            const waitingCalls = channels.filter((c: any) => c.status === "waiting");
+            const activeCalls = channels.filter((c: any) => c.status === "active" || c.status === "ongoing");
+            const completedCalls = channels.filter((c: any) => c.status === "completed");
+
+            // Update queue count and statistics
+            setQueueCount(waitingCalls.length);
+            setTotalCallsToday(channels.length);
+
+            // Update response time data
+            const responseTimes: number[] = [];
+            completedCalls.forEach((call: any) => {
+              const responseTime = calculateCallResponseTime(call);
+              responseTimes.push(responseTime);
+            });
+
+            activeCalls.forEach((call: any) => {
+              if (call.created_at && !call.answered_at) {
+                const waitingTime = Date.now() - new Date(call.created_at).getTime();
+                responseTimes.push(waitingTime);
+              }
+            });
+
+            if (responseTimes.length > 0) {
+              setResponseTimeData(prev => {
+                const newData = [...prev, ...responseTimes];
+                const updatedData = newData.slice(-10);
+                const newAverage = calculateAverageResponseTime(updatedData);
+                setAverageResponseTime(newAverage);
+                return updatedData;
+              });
+            }
+          }
+          return; // Don't refresh the call list, keep current call
+        } else {
+          console.log("Current call is no longer alive, will refresh call list");
+          setCurrentCallHeartbeat(false);
+          setIncomingCall(null); // Clear the dead call
+          setCallFirstDetectedAt(null); // Reset detection time
+        }
+      } else {
+        // Still in grace period, just update statistics
+        console.log(`Call in grace period (${Math.round(timeSinceDetected/1000)}s/${Math.round(HEARTBEAT_GRACE_PERIOD/1000)}s), skipping heartbeat check`);
+        
+        const { success, channels } = await callService.listChannels();
+        if (success && channels) {
+          const waitingCalls = channels.filter((c: any) => c.status === "waiting");
+          const activeCalls = channels.filter((c: any) => c.status === "active" || c.status === "ongoing");
+          const completedCalls = channels.filter((c: any) => c.status === "completed");
+
+          // Update queue count and statistics
+          setQueueCount(waitingCalls.length);
+          setTotalCallsToday(channels.length);
+
+          // Update response time data
+          const responseTimes: number[] = [];
+          completedCalls.forEach((call: any) => {
+            const responseTime = calculateCallResponseTime(call);
+            responseTimes.push(responseTime);
+          });
+
+          activeCalls.forEach((call: any) => {
+            if (call.created_at && !call.answered_at) {
+              const waitingTime = Date.now() - new Date(call.created_at).getTime();
+              responseTimes.push(waitingTime);
+            }
+          });
+
+          if (responseTimes.length > 0) {
+            setResponseTimeData(prev => {
+              const newData = [...prev, ...responseTimes];
+              const updatedData = newData.slice(-10);
+              const newAverage = calculateAverageResponseTime(updatedData);
+              setAverageResponseTime(newAverage);
+              return updatedData;
+            });
+          }
+        }
+        return; // Keep current call during grace period
+      }
+    }
+
+    // Step 2: Fetch full call list (either no current call or current call is dead)
+    console.log("Fetching fresh call list");
     const { success, channels } = await callService.listChannels();
 
     if (success && channels && channels.length > 0) {
@@ -211,29 +340,40 @@ export default function Home() {
         });
       }
 
-      // For demo: show the first waiting call
-      const waitingCall = waitingCalls.find((c: any) => c.status === "waiting");
+      // For demo: show the first waiting call (only if we don't have a current call)
+      if (!incomingCall) {
+        const waitingCall = waitingCalls.find((c: any) => c.status === "waiting");
 
-      if (waitingCall) {
-        setIsLoadingCaller(true);
+        if (waitingCall) {
+          setIsLoadingCaller(true);
 
-        // Fetch caller information using the channel name as call ID
-        const callerInfo = await fetchCallerInfo(waitingCall.channelName);
+          // Fetch caller information using the channel name as call ID
+          const callerInfo = await fetchCallerInfo(waitingCall.channelName);
 
-        setIncomingCall({
-          ...waitingCall,
-          caller: callerInfo
-        });
-        setIsLoadingCaller(false);
-      } else {
-        setIncomingCall(null);
+          const newCall = {
+            ...waitingCall,
+            caller: callerInfo
+          };
+
+          setIncomingCall(newCall);
+          setCurrentCallHeartbeat(null); // Reset heartbeat status for new call
+          setCallFirstDetectedAt(Date.now()); // Record when this call was first detected
+          setIsLoadingCaller(false);
+          console.log("Set new incoming call:", waitingCall.channelName, "- grace period started");
+        } else {
+          setIncomingCall(null);
+          setCurrentCallHeartbeat(null);
+          setCallFirstDetectedAt(null);
+        }
       }
     } else {
       // No channels available
       setQueueCount(0);
       setIncomingCall(null);
+      setCurrentCallHeartbeat(null);
+      setCallFirstDetectedAt(null);
     }
-  }, []); // Empty dependency array since the function doesn't depend on any state
+  }, [incomingCall, callFirstDetectedAt]); // Add callFirstDetectedAt as dependency
 
   useEffect(() => {
     const callService = getCallService();
@@ -281,6 +421,15 @@ export default function Home() {
             <div><strong>Response Time Samples:</strong> {responseTimeData.length}</div>
             <div><strong>Status Active:</strong> {isStatusActive ? 'Yes' : 'No'}</div>
             <div><strong>Incoming Call:</strong> {incomingCall ? incomingCall.channelName : 'None'}</div>
+            <div><strong>Current Call Heartbeat:</strong> {
+              currentCallHeartbeat === null ? 'Not checked' :
+              currentCallHeartbeat ? '✅ Alive' : '❌ Dead'
+            }</div>
+            {callFirstDetectedAt && (
+              <div><strong>Call Grace Period:</strong> {
+                Math.max(0, Math.round((HEARTBEAT_GRACE_PERIOD - (Date.now() - callFirstDetectedAt)) / 1000))
+              }s remaining</div>
+            )}
             {responseTimeData.length > 0 && (
               <div><strong>Latest Response Times (ms):</strong> {responseTimeData.slice(-3).map(t => Math.round(t / 1000)).join(', ')}s</div>
             )}
@@ -299,6 +448,7 @@ export default function Home() {
               call={incomingCall}
               onAccept={handleAnswer}
               isLoading={isLoadingCaller}
+              heartbeatStatus={currentCallHeartbeat}
             />
           )}
         </div>
