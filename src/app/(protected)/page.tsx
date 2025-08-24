@@ -545,7 +545,7 @@ export default function Home() {
         )}
 
         <Label type="title" className="text-primary px-4">Laporan Hari Ini</Label>
-        <ReportList />
+        <ReportList compact={true} />
       </div>
 
       <div className="relative w-1/3 flex flex-col justify-center items-center p-12 gap-6 h-full">
