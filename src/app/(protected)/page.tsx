@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import CallServiceSingleton from "@/lib/callServiceSingleton";
 import { useRouter } from 'next/navigation';
+import { OperatorService } from "@/services/operator-service";
+import { useAuth } from "@/hooks/use-auth";
 
 import ReportList from "@/components/pages/dashboard/report-list";
 import DashboardDataCard from "@/components/pages/dashboard/dashboard-data-cards";
@@ -40,6 +42,7 @@ interface ChannelData {
 
 export default function Home() {
   const router = useRouter();
+  const { session } = useAuth(); // Get session from auth hook
   const [isStatusActive, setIsStatusActive] = useState(false);
   const [incomingCall, setIncomingCall] = useState<CallWithCaller | null>(null);
   const [isLoadingCaller, setIsLoadingCaller] = useState(false);
@@ -49,9 +52,16 @@ export default function Home() {
   const [totalCallsToday, setTotalCallsToday] = useState(0);
   const [currentCallHeartbeat, setCurrentCallHeartbeat] = useState<boolean | null>(null);
   const [callFirstDetectedAt, setCallFirstDetectedAt] = useState<number | null>(null);
+  const [activeOperatorCount, setActiveOperatorCount] = useState(0);
+  const [totalOperatorCount, setTotalOperatorCount] = useState(0);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   // Heartbeat grace period (30 seconds for new calls to establish)
   const HEARTBEAT_GRACE_PERIOD = 30000; // 30 seconds
+
+  // Get current operator info from session
+  const currentOperatorInfo = OperatorService.getCurrentOperatorInfo(session);
+  const currentOperatorId = OperatorService.getCurrentOperatorId(session);
 
   // Get the singleton CallService instance
   const getCallService = () => {
@@ -98,6 +108,81 @@ export default function Home() {
       return false;
     }
   }
+
+  // Function to update operator status
+  async function updateOperatorStatus(isActive: boolean): Promise<void> {
+    if (!session) {
+      console.error('No session available for updating operator status');
+      setIsStatusActive(!isActive); // Revert the toggle
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    try {
+      const result = await OperatorService.updateOperatorStatus(session, isActive);
+      
+      if (result.success) {
+        console.log(`Operator status updated to ${isActive ? 'active' : 'inactive'}`);
+        
+        // Wait a moment for the database to update, then refresh the count
+        setTimeout(async () => {
+          await fetchActiveOperatorCount();
+          await fetchTotalOperatorCount();
+        }, 500); // 500ms delay to ensure DB is updated
+        
+        // Also refresh immediately for faster UI feedback
+        await fetchActiveOperatorCount();
+        await fetchTotalOperatorCount();
+      } else {
+        console.error('Failed to update operator status:', result.error);
+        // Revert the toggle if update failed
+        setIsStatusActive(!isActive);
+      }
+    } catch (error) {
+      console.error('Error updating operator status:', error);
+      // Revert the toggle if update failed
+      setIsStatusActive(!isActive);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
+  // Function to fetch active operator count
+  async function fetchActiveOperatorCount(): Promise<void> {
+    try {
+      const result = await OperatorService.getActiveOperatorCount();
+      
+      if (result.success) {
+        setActiveOperatorCount(result.count);
+      } else {
+        console.error('Failed to fetch active operator count:', result.error);
+      }
+    } catch (error) {
+      console.error('Error fetching active operator count:', error);
+    }
+  }
+
+  // Function to fetch total operator count
+  async function fetchTotalOperatorCount(): Promise<void> {
+    try {
+      const result = await OperatorService.getTotalOperatorCount();
+      
+      if (result.success) {
+        setTotalOperatorCount(result.count);
+      } else {
+        console.error('Failed to fetch total operator count:', result.error);
+      }
+    } catch (error) {
+      console.error('Error fetching total operator count:', error);
+    }
+  }
+
+  // Handle status switch change
+  const handleStatusChange = async (newStatus: boolean) => {
+    setIsStatusActive(newStatus);
+    // Invert the database value: when UI shows inactive (ready), DB should be active
+    await updateOperatorStatus(!newStatus);
+  };
 
   // Function to calculate and format response time
   function calculateAverageResponseTime(responseTimes: number[]): string {
@@ -380,9 +465,20 @@ export default function Home() {
 
     let interval: NodeJS.Timeout | null = null;
 
-    // Poll every 5 seconds
+    // Initial setup
     pollCalls();
-    interval = setInterval(pollCalls, 5000);
+    fetchActiveOperatorCount(); // Fetch initial operator count
+    fetchTotalOperatorCount(); // Fetch total operator count
+    
+    // Poll every 5 seconds
+    interval = setInterval(() => {
+      pollCalls();
+      // Refresh operator count more frequently (every 10 seconds instead of 30)
+      if (Date.now() % 10000 < 5000) { // Roughly every 2nd poll
+        fetchActiveOperatorCount();
+        fetchTotalOperatorCount();
+      }
+    }, 5000);
 
     return () => {
       if (interval) clearInterval(interval);
@@ -397,12 +493,16 @@ export default function Home() {
             <Label type="subtitle">Status</Label>
             <StatusSwitch
               checked={isStatusActive}
-              onCheckedChange={setIsStatusActive}
+              onCheckedChange={handleStatusChange}
+              disabled={isUpdatingStatus}
             />
+            {isUpdatingStatus && (
+              <Label className="text-sm text-gray-500">Updating...</Label>
+            )}
           </div>
           <div className="flex gap-2 items-center">
             <Icon icon="bi:people-fill" className="text-primary" />
-            <Label>15/20 operator bertugas</Label>
+            <Label>{activeOperatorCount}/{totalOperatorCount} operator bertugas</Label>
           </div>
         </div>
 
@@ -420,6 +520,14 @@ export default function Home() {
             <div><strong>Average Response Time:</strong> {averageResponseTime}</div>
             <div><strong>Response Time Samples:</strong> {responseTimeData.length}</div>
             <div><strong>Status Active:</strong> {isStatusActive ? 'Yes' : 'No'}</div>
+            <div><strong>DB isActive Value:</strong> {!isStatusActive ? 'true' : 'false'}</div>
+            <div><strong>UI State:</strong> {!isStatusActive ? 'Showing ACTIVE UI (call-active.svg)' : 'Showing INACTIVE UI (call-inactive.svg)'}</div>
+            <div><strong>Active Operators:</strong> {activeOperatorCount}</div>
+            <div><strong>Total Operators:</strong> {totalOperatorCount}</div>
+            <div><strong>Current Operator ID:</strong> {currentOperatorId || 'Not logged in'}</div>
+            <div><strong>Current Operator Email:</strong> {currentOperatorInfo?.email || 'N/A'}</div>
+            <div><strong>Session Available:</strong> {session ? 'Yes' : 'No'}</div>
+            <div><strong>Updating Status:</strong> {isUpdatingStatus ? 'Yes' : 'No'}</div>
             <div><strong>Incoming Call:</strong> {incomingCall ? incomingCall.channelName : 'None'}</div>
             <div><strong>Current Call Heartbeat:</strong> {
               currentCallHeartbeat === null ? 'Not checked' :
@@ -455,7 +563,7 @@ export default function Home() {
         {isStatusActive ? (
           <>
             <div className="relative w-full h-1/2">
-              <Image className="object-contain" src="/call-inactive.svg" alt="Tidak Tersedia" fill />
+              <Image className="object-contain" src="/call-inactive.svg" alt="Operator Tidak Aktif" fill />
             </div>
             <div>
               <Label type="defaultMuted" className="text-center w-full block">Siap melayani?</Label>
@@ -466,7 +574,7 @@ export default function Home() {
         ) : (
           <>
             <div className="relative w-full h-1/2">
-              <Image className="object-contain" src="/call-active.svg" alt="Aktif" fill />
+              <Image className="object-contain" src="/call-active.svg" alt="Operator Aktif - Siap Menerima Panggilan" fill />
             </div>
             <div>
               <Label type="defaultMuted" className="text-center w-full block">
