@@ -119,7 +119,7 @@ export default function AIContainerCard({
                             <Label type="subtitle" className="gradient-text">{title}</Label>
                         </AccordionTrigger>
 
-                        <AccordionContent className="h-full pb-0 relative">
+                        <AccordionContent className="h-full pb-4 relative">
                             <div className="h-full">
                                 {loading ? (
                                     <div className="flex flex-col gap-4 pb-4">
@@ -129,7 +129,7 @@ export default function AIContainerCard({
                                         <Skeleton className="h-[20px] w-full rounded-full" />
                                     </div>
                                 ) : displayContent ? (
-                                    <div className="overflow-y-scroll rounded-xl bg-accent p-4 h-full">
+                                    <div className="overflow-y-scroll rounded-xl bg-accent p-4 pb-6 h-full">
                                         {displayContent}
                                     </div>
                                 ) : (
