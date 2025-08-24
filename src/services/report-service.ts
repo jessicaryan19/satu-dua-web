@@ -56,6 +56,7 @@ export interface Call {
 export const ReportService = {
   getOperatorReports: async (operatorId: string) => {
     const { data, error } = await supabase
+      .schema('satudua')
       .from('reports')
       .select(`
         id,
@@ -93,6 +94,7 @@ export const ReportService = {
     try {
       // 1. Find the existing call by call_id (channelName)
       const { data: existingCall, error: callFindError } = await supabase
+        .schema('satudua')
         .from('calls')
         .select('*')
         .eq('id', callId)
@@ -102,69 +104,47 @@ export const ReportService = {
         throw new Error(`Call with ID ${callId} not found: ${callFindError?.message || 'Unknown error'}`);
       }
 
-      // 2. Create or get user (caller)
+      // 2. Get caller information from the existing call's caller_id
       let user: User | null = null;
 
-      // Check if user exists by phone number
-      const { data: existingUsers, error: userCheckError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('phone_number', formData.callerPhone)
-        .limit(1);
-
-      if (userCheckError) throw userCheckError;
-
-      if (existingUsers && existingUsers.length > 0) {
-        user = existingUsers[0];
-        if (!user) {
-          throw new Error("User object is null after fetching existing user.");
-        }
-        // Update name and address if they're different
-        const updateData: Partial<User> = {};
-        if (user.name !== formData.callerName) {
-          updateData.name = formData.callerName;
-        }
-        if (formData.detailAddress && user.address !== formData.detailAddress) {
-          updateData.address = formData.detailAddress;
-        }
-
-        if (Object.keys(updateData).length > 0) {
-          const { data: updatedUser, error: updateError } = await supabase
-            .from('users')
-            .update(updateData)
-            .eq('id', user?.id)
-            .select()
-            .single();
-
-          if (updateError) throw updateError;
-          user = updatedUser;
-        }
-      } else {
-        // Create new user
-        const { data: newUser, error: createUserError } = await supabase
-          .from('users')
-          .insert({
-            name: formData.callerName,
-            phone_number: formData.callerPhone,
-            address: formData.detailAddress || null
-          })
-          .select()
-          .single();
-
-        if (createUserError) throw createUserError;
-        user = newUser;
+      if (!existingCall.caller_id) {
+        throw new Error(`Call ${callId} does not have a caller_id. Cannot create report without caller information.`);
       }
 
-      if (!user) throw new Error('Failed to create or retrieve user');
+      // Fetch the caller information using the caller_id from the call
+      try {
+        const { data: callerData, error: callerError } = await supabase
+          .schema('satudua')
+          .from('users')
+          .select('*')
+          .eq('id', existingCall.caller_id)
+          .single();
 
-      // 3. Update the existing call with final details
+        if (callerError || !callerData) {
+          console.error('Error fetching caller from satudua.users table:', callerError);
+          throw new Error(`Caller not found: ${callerError?.message || 'User does not exist'}`);
+        }
+
+        user = callerData;
+        console.log('Found caller:', user.id, user.name);
+
+      } catch (userError) {
+        console.error('Error in caller lookup process:', userError);
+        throw userError; // Re-throw the error
+      }
+
+      if (!user || !user.id) {
+        throw new Error('Failed to retrieve caller data');
+      }
+
+      // 3. Update the call status, location, and assign operator
       const { data: updatedCall, error: callUpdateError } = await supabase
+        .schema('satudua')
         .from('calls')
         .update({
-          caller_id: user.id,
+          operator_id: operatorId, // Assign the operator who answered the call
           status: 'ended', // Mark as completed
           ended_at: new Date().toISOString(),
-          // Update location if provided in form (override existing location)
           location: {
             kecamatan: formData.kecamatan || existingCall.location?.kecamatan || null,
             kelurahan: formData.kelurahan || existingCall.location?.kelurahan || null,
@@ -180,7 +160,7 @@ export const ReportService = {
       // 4. Generate report ID (using timestamp format)
       const reportId = `25080600${Date.now().toString().slice(-6)}`;
 
-      // 5. Create report with location from call
+      // 5. Create report with location information from the updated call
       const reportData = {
         call_id: callId, // Use the existing call ID
         operator_report: {
@@ -193,7 +173,7 @@ export const ReportService = {
         },
         system_info: {
           caller_name: formData.callerName,
-          caller_phone: formData.callerPhone,
+          caller_address: formData.detailAddress,
           report_id: reportId,
           timestamp: new Date().toISOString()
         },
@@ -201,6 +181,7 @@ export const ReportService = {
       };
 
       const { data: report, error: reportError } = await supabase
+        .schema('satudua')
         .from('reports')
         .insert(reportData)
         .select()
@@ -210,15 +191,50 @@ export const ReportService = {
 
       // 6. Save AI recommendation if provided
       if (aiRecommendation) {
-        const { error: aiError } = await supabase
-          .from('ai_recommendations')
-          .insert({
-            call_id: callId,
-            suggestion: aiRecommendation,
-            analysis: aiAnalysis || null
-          });
+        try {
+          // Check if AI recommendation already exists for this call
+          const { data: existingAI, error: checkError } = await supabase
+            .schema('satudua')
+            .from('ai_recommendations')
+            .select('id')
+            .eq('call_id', callId)
+            .single();
 
-        if (aiError) throw aiError;
+          if (checkError && checkError.code !== 'PGRST116') {
+            // If error is not "no rows found", throw it
+            throw checkError;
+          }
+
+          if (existingAI) {
+            // Update existing recommendation
+            const { error: updateError } = await supabase
+              .schema('satudua')
+              .from('ai_recommendations')
+              .update({
+                suggestion: aiRecommendation,
+                analysis: aiAnalysis || null
+              })
+              .eq('call_id', callId);
+
+            if (updateError) throw updateError;
+          } else {
+            // Insert new recommendation
+            const { error: aiError } = await supabase
+              .schema('satudua')
+              .from('ai_recommendations')
+              .insert({
+                call_id: callId,
+                suggestion: aiRecommendation,
+                analysis: aiAnalysis || null
+              });
+
+            if (aiError) throw aiError;
+          }
+        } catch (aiErr) {
+          console.error('Error handling AI recommendation:', aiErr);
+          // Don't fail the entire operation if AI recommendation fails
+          console.warn('AI recommendation could not be saved, but report was created successfully');
+        }
       }
 
       return {
@@ -226,8 +242,9 @@ export const ReportService = {
         reportId,
         callId: callId,
         userId: user.id,
+        userFound: true, // Always true now since we require existing users
         data: report,
-        callData: updatedCall // Return the updated call data including location
+        callData: updatedCall
       };
 
     } catch (error) {
@@ -242,6 +259,7 @@ export const ReportService = {
   getCallDetails: async (callId: string) => {
     try {
       const { data, error } = await supabase
+        .schema('satudua')
         .from('calls')
         .select(`
           id,
@@ -284,6 +302,7 @@ export const ReportService = {
   getReportById: async (reportId: string) => {
     try {
       const { data, error } = await supabase
+        .schema('satudua')
         .from('reports')
         .select(`
           *,

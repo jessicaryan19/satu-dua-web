@@ -54,6 +54,9 @@ export default function ReportFormCard({
           const callData = result.data;
           const caller = Array.isArray(callData.caller) ? callData.caller[0] : callData.caller;
           
+          console.log("Call data received:", callData);
+          console.log("Location data:", callData.location);
+          
           // Pre-populate form with call data if available
           setFormData(prev => ({
             ...prev,
@@ -64,7 +67,15 @@ export default function ReportFormCard({
             detailAddress: callData.location?.detail_address || caller?.address || prev.detailAddress
           }));
           
-          console.log("Pre-populated form with call data:", callData);
+          console.log("Pre-populated form with call data:", {
+            caller: caller,
+            location: callData.location,
+            formData: {
+              kecamatan: callData.location?.kecamatan,
+              kelurahan: callData.location?.kelurahan,
+              detailAddress: callData.location?.detail_address || caller?.address
+            }
+          });
         } else {
           console.warn("Could not load call details:", result.error);
         }
@@ -96,15 +107,23 @@ export default function ReportFormCard({
 
   // ini nanti fetch berdasarkan sent location
   const kecamatanOptions: SelectOption[] = [
-    // Add your kecamatan options here
+    // Add actual kecamatan options - these should match what's in your database
     { value: "kecamatan1", label: "Kecamatan 1" },
     { value: "kecamatan2", label: "Kecamatan 2" },
+    // Add any kecamatan value from the call data if it's not in the list
+    ...(formData.kecamatan && !["kecamatan1", "kecamatan2"].includes(formData.kecamatan) 
+        ? [{ value: formData.kecamatan, label: formData.kecamatan }] 
+        : [])
   ];
 
   const kelurahanOptions: SelectOption[] = [
-    // Add your kelurahan options here based on selected kecamatan
+    // Add actual kelurahan options based on selected kecamatan - these should match what's in your database
     { value: "kelurahan1", label: "Kelurahan 1" },
     { value: "kelurahan2", label: "Kelurahan 2" },
+    // Add any kelurahan value from the call data if it's not in the list
+    ...(formData.kelurahan && !["kelurahan1", "kelurahan2"].includes(formData.kelurahan) 
+        ? [{ value: formData.kelurahan, label: formData.kelurahan }] 
+        : [])
   ];
 
   const handleInputChange = (field: keyof ReportFormData, value: string) => {
