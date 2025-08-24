@@ -21,12 +21,26 @@ type IncomingCallCardProps = {
   call: CallWithCaller;
   onAccept: (call: CallWithCaller) => void;
   isLoading?: boolean;
+  heartbeatStatus?: boolean | null;
 }
 
-export default function IncomingCallCard({ call, onAccept, isLoading = false }: IncomingCallCardProps) {
+export default function IncomingCallCard({ call, onAccept, isLoading = false, heartbeatStatus = null }: IncomingCallCardProps) {
   // Display caller info or loading state
   const displayName = call.caller?.name || "Unknown Caller";
   const displayPhone = call.caller?.phone_number || "No Phone Number";
+
+  // Determine heartbeat indicator
+  const getHeartbeatIndicator = () => {
+    if (heartbeatStatus === null) return null;
+    if (heartbeatStatus === true) return "💚"; // Green heart for alive
+    return "💔"; // Broken heart for dead
+  };
+
+  const getHeartbeatText = () => {
+    if (heartbeatStatus === null) return "";
+    if (heartbeatStatus === true) return "Call Active";
+    return "Call Ended";
+  };
 
   return (
     <div className="w-full h-full bg-destructive-accent rounded-2xl border-2 border-destructive overflow-hidden relative animate-[blink-shadow_1s_infinite]">
@@ -56,6 +70,12 @@ export default function IncomingCallCard({ call, onAccept, isLoading = false }: 
             <>
               <Label className="text-black" type="strong">{displayName}</Label>
               <Label className="text-black" type="subtitle">{displayPhone}</Label>
+              {heartbeatStatus !== null && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-lg">{getHeartbeatIndicator()}</span>
+                  <Label className="text-black text-xs">{getHeartbeatText()}</Label>
+                </div>
+              )}
             </>
           )}
         </div>
